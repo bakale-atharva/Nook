@@ -13,7 +13,7 @@ export default function WorkspaceHomePage() {
 
   useEffect(() => {
     if (channels && channels.length > 0) {
-      router.replace(`/w/${params.slug}/c/${channels[0]._id}`);
+      router.replace(`/org/${params.slug}/c/${channels[0]._id}`);
     }
   }, [channels, params.slug, router]);
 

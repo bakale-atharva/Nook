@@ -78,7 +78,7 @@ export default function ChannelPage({
   async function handleDelete() {
     if (!confirm(`Delete #${channel!.name}? This can't be undone.`)) return;
     await remove({ channelId: channelId as Id<"channels"> });
-    router.replace(`/w/${slug}`);
+    router.replace(`/org/${slug}`);
   }
 
   return (
