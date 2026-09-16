@@ -12,6 +12,8 @@ import type * as channels from "../channels.js";
 import type * as clerkSync from "../clerkSync.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as messages from "../messages.js";
+import type * as typing from "../typing.js";
 import type * as users from "../users.js";
 
 import type {
@@ -25,6 +27,8 @@ declare const fullApi: ApiFromModules<{
   clerkSync: typeof clerkSync;
   http: typeof http;
   "lib/auth": typeof lib_auth;
+  messages: typeof messages;
+  typing: typeof typing;
   users: typeof users;
 }>;
 

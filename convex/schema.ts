@@ -70,5 +70,7 @@ export default defineSchema({
     channelId: v.id("channels"),
     userId: v.id("users"),
     expiresAt: v.number(),
-  }).index("by_channel", ["channelId"]),
+  })
+    .index("by_channel", ["channelId"])
+    .index("by_channel_user", ["channelId", "userId"]),
 });

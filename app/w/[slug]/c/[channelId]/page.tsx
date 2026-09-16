@@ -16,6 +16,9 @@ import {
   AvatarImage,
 } from "@/components/ui/avatar";
 import { Hash, Lock, LogOut, Trash2 } from "lucide-react";
+import { MessageList } from "@/components/message-list";
+import { MessageComposer } from "@/components/message-composer";
+import { TypingIndicator } from "@/components/typing-indicator";
 
 function initials(name: string) {
   return name
@@ -48,6 +51,7 @@ export default function ChannelPage({
   const me = useQuery(api.users.me);
 
   const canManage = isLoaded && !!has?.({ permission: "org:channels:manage" });
+  const canModerate = isLoaded && !!has?.({ permission: "org:messages:moderate" });
   const isMember = !!me && (members?.some((m) => m.userId === me._id) ?? false);
 
   if (channel === undefined) return null;
@@ -125,9 +129,23 @@ export default function ChannelPage({
         )}
       </div>
 
-      <div className="flex flex-1 items-center justify-center p-6 text-center text-muted-foreground">
-        Messaging arrives in Phase 3 — this is #{channel.name}&apos;s home for now.
-      </div>
+      {isMember ? (
+        <>
+          <MessageList
+            channelId={channelId as Id<"channels">}
+            currentUserId={me?._id}
+            canModerate={canModerate}
+          />
+          <TypingIndicator channelId={channelId as Id<"channels">} />
+          <MessageComposer channelId={channelId as Id<"channels">} channelName={channel.name} />
+        </>
+      ) : (
+        <div className="flex flex-1 items-center justify-center p-6 text-center text-muted-foreground">
+          {channel.isPrivate
+            ? "You're not a member of this private channel."
+            : `Join #${channel.name} to see and send messages.`}
+        </div>
+      )}
     </div>
   );
 }
