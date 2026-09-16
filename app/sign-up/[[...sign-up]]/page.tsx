@@ -1,14 +1,17 @@
-import Link from "next/link";
 import { SignUp } from "@clerk/nextjs";
-import { MarketingShell } from "@/components/marketing-shell";
+import { AuthSplitShell } from "@/components/auth-split-shell";
 
 export default function SignUpPage() {
   return (
-    <MarketingShell className="items-center justify-center gap-6 px-6 py-16">
-      <Link href="/" className="font-heading text-lg font-semibold">
-        Nook
-      </Link>
-      <SignUp />
-    </MarketingShell>
+    <AuthSplitShell>
+      <SignUp
+        appearance={{
+          elements: {
+            rootBox: "w-full h-full",
+            cardBox: "w-full h-full flex flex-col justify-center",
+          },
+        }}
+      />
+    </AuthSplitShell>
   );
 }
