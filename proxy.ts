@@ -9,10 +9,10 @@ export default clerkMiddleware(
     }
   },
   {
-    // Visiting /w/<org-slug>/... makes that Organization the active one, so
+    // Visiting /org/<org-slug>/... makes that Organization the active one, so
     // the session token (and therefore Convex) is always scoped to the URL.
     organizationSyncOptions: {
-      organizationPatterns: ["/w/:slug", "/w/:slug/(.*)"],
+      organizationPatterns: ["/org/:slug", "/org/:slug/(.*)"],
     },
   },
 );

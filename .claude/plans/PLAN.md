@@ -264,14 +264,14 @@ Every function checks that the channel's `orgId` matches the caller's token org.
 
 **Next.js** (read `node_modules/next/dist/docs` first; Next 16 uses `proxy.ts`):
 - `components/providers.tsx` wraps the app in `ConvexProviderWithClerk` (`convex/react-clerk`) using `useAuth`.
-- `proxy.ts`: `clerkMiddleware` with `organizationSyncOptions` (`/w/:slug(.*)`), protecting everything except `/`, `/sign-in` and `/sign-up`.
+- `proxy.ts`: `clerkMiddleware` with `organizationSyncOptions` (`/org/:slug(.*)`), protecting everything except `/`, `/sign-in` and `/sign-up`.
 - Routes:
   - `/`: landing page plus `<PricingTable for="organization"/>`
   - `/onboarding`: `<OrganizationList hidePersonal>` / `<CreateOrganization>`, then invite teammates
-  - `/w/[slug]`: app shell with a sidebar (org switcher, channel list, unread badges, "3/5 channels" meter, `UserButton`)
-  - `/w/[slug]/c/[channelId]`: message list, composer, typing indicator
-  - `/w/[slug]/settings`: `<OrganizationProfile>` for members, invites (seat limit) and billing
-  - `/w/[slug]/upgrade`: plan comparison plus `<PricingTable for="organization">`
+  - `/org/[slug]`: app shell with a sidebar (org switcher, channel list, unread badges, "3/5 channels" meter, `UserButton`)
+  - `/org/[slug]/c/[channelId]`: message list, composer, typing indicator
+  - `/org/[slug]/settings`: `<OrganizationProfile>` for members, invites (seat limit) and billing
+  - `/org/[slug]/upgrade`: plan comparison plus `<PricingTable for="organization">`
 - **Gating in the UI:** `<Show when={{ permission: "org:channels:manage" }}>` / `has({ feature })`, only as UX hints. The server is the source of truth.
 - **Upgrade flow:** a shared `UpgradeDialog` opens on any `PLAN_LIMIT` ConvexError and from locked CTAs (history banner, private toggle, channel meter). After checkout, call `session.reload()` so the new `fea` claim reaches Convex straight away.
 **User journey: onboarding → upgrade:**
@@ -285,10 +285,10 @@ sequenceDiagram
   U->>N: Sign up
   N->>C: session task choose-organization
   C-->>U: /onboarding (create org, invite teammates ≤5)
-  U->>N: /w/acme/c/general
+  U->>N: /org/acme/c/general
   N->>X: channels.create("6th")
   X-->>N: ConvexError PLAN_LIMIT (channels)
-  N-->>U: UpgradeDialog → /w/acme/upgrade
+  N-->>U: UpgradeDialog → /org/acme/upgrade
   U->>C: PricingTable checkout (pro)
   C-->>N: subscription active
   N->>C: session.reload() (new fea/pla claims)

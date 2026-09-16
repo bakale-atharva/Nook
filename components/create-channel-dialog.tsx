@@ -48,7 +48,7 @@ export function CreateChannelDialog({
       setName("");
       setDescription("");
       setIsPrivate(false);
-      router.push(`/w/${orgSlug}/c/${channelId}`);
+      router.push(`/org/${orgSlug}/c/${channelId}`);
     } catch (err) {
       toast.error(convexErrorMessage(err));
     } finally {

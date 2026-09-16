@@ -54,8 +54,8 @@ export default function WorkspaceLayout({
       <Sidebar>
         <SidebarHeader className="p-2">
           <OrganizationSwitcher
-            afterSelectOrganizationUrl="/w/:slug"
-            afterCreateOrganizationUrl="/w/:slug"
+            afterSelectOrganizationUrl="/org/:slug"
+            afterCreateOrganizationUrl="/org/:slug"
             hidePersonal
           />
         </SidebarHeader>
@@ -84,7 +84,7 @@ export default function WorkspaceLayout({
                   </p>
                 ) : (
                   channels.map((channel) => {
-                    const href = `/w/${params.slug}/c/${channel._id}`;
+                    const href = `/org/${params.slug}/c/${channel._id}`;
                     return (
                       <SidebarMenuItem key={channel._id}>
                         <SidebarMenuButton
@@ -121,7 +121,7 @@ export default function WorkspaceLayout({
         <SidebarFooter>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton render={<Link href={`/w/${params.slug}/settings`} />}>
+              <SidebarMenuButton render={<Link href={`/org/${params.slug}/settings`} />}>
                 <Settings className="opacity-70" />
                 <span>Settings</span>
               </SidebarMenuButton>
@@ -143,7 +143,7 @@ export default function WorkspaceLayout({
                 You don&apos;t have access to that organization, or it no
                 longer exists. Pick one below.
               </p>
-              <OrganizationSwitcher hidePersonal afterSelectOrganizationUrl="/w/:slug" />
+              <OrganizationSwitcher hidePersonal afterSelectOrganizationUrl="/org/:slug" />
             </div>
           </div>
         ) : (
