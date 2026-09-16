@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { usePaginatedQuery, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
@@ -133,10 +134,12 @@ export function MessageList({
   channelId,
   currentUserId,
   canModerate,
+  orgSlug,
 }: {
   channelId: Id<"channels">;
   currentUserId: Id<"users"> | undefined;
   canModerate: boolean;
+  orgSlug: string;
 }) {
   const { results, status, loadMore } = usePaginatedQuery(
     api.messages.list,
@@ -175,8 +178,12 @@ export function MessageList({
       {historyHidden && (
         <div className="mx-4 mb-2 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
           <Sparkles className="size-4 shrink-0" />
-          Free plan shows only the last 30 messages. Upgrade to Pro to see
-          the full history.
+          <span className="flex-1">
+            Free plan shows only the last 30 messages.
+          </span>
+          <Link href={`/org/${orgSlug}/upgrade`} className="font-medium text-foreground underline">
+            Upgrade to Pro
+          </Link>
         </div>
       )}
       {status === "CanLoadMore" && (
