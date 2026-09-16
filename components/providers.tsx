@@ -4,6 +4,8 @@ import { useAuth } from "@clerk/nextjs";
 import { ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { StoreUser } from "@/components/store-user";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
@@ -20,8 +22,11 @@ export function ConvexClientProvider({
 }) {
   return (
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-      <StoreUser />
-      {children}
+      <TooltipProvider>
+        <StoreUser />
+        {children}
+        <Toaster />
+      </TooltipProvider>
     </ConvexProviderWithClerk>
   );
 }
