@@ -144,15 +144,43 @@ step-by-step "decode your own JWT" sanity check live in
 
 ## Project status
 
+All 6 phases are done — see [`.claude/plans/PLAN.md`](.claude/plans/PLAN.md)
+for the full design doc and phase-by-phase history.
+
 - ✅ **Phase 0** — tooling fixes (fonts, ESLint 10 compat), Convex client
   provider, `proxy.ts` org-sync middleware.
 - ✅ **Phase 1** — schema, claim-based auth helpers, Clerk → Convex webhook
   sync (`http.ts` / `clerkSync.ts`) + one-off backfill action.
-- ⬜ Phase 2 — channels, app shell, onboarding.
-- ⬜ Phase 3 — real-time messaging, typing, unread.
-- ⬜ Phase 4 — billing gating (channel/history limits, private channels,
-  upgrade flow).
-- ⬜ Phase 5 — polish, landing page.
+- ✅ **Phase 2** — channels CRUD, app shell (`/org/[slug]`), onboarding.
+- ✅ **Phase 3** — real-time messaging, edit/delete, typing indicators, unread.
+- ✅ **Phase 4** — billing gating UI: upgrade page, `UpgradeDialog`, plan/seat
+  status, `PlanSync` (session reload after checkout).
+- ✅ **Phase 5** — landing page, loading-state polish, responsive pass, this
+  README.
 
-See [`.claude/plans/PLAN.md`](.claude/plans/PLAN.md) for the full plan,
-including verification steps run at the end of each phase.
+### Known gap
+
+`convex/clerkSync.ts` only handles `subscription.created/updated/active/
+pastDue`. A Pro org whose subscription is later canceled/ended won't have
+`organizations.plan` reset by a webhook (Free never fires a subscription
+event to begin with, so this only affects downgrades) — a good follow-up
+if that flow matters to you.
+
+## Verifying the app yourself
+
+This was built without live credentials to click through the authenticated
+flow (Clerk's sign-up bot check blocks automated sign-up), so every phase
+was verified with `tsc --noEmit`, `eslint`, and a clean `convex dev` push,
+plus route-protection checks in the browser — not a full manual run-through.
+Worth doing once before you consider this production-ready:
+
+1. Sign up, get routed through `/onboarding`, create an organization.
+2. Create a few channels (including a private one, once on Pro), join/leave,
+   send/edit/delete messages, watch typing indicators and unread badges.
+3. Hit the free-plan limits (6th channel, 31st message, private-channel
+   toggle) and confirm the `UpgradeDialog`/banners point at `/org/[slug]
+   /upgrade`.
+4. Upgrade via the `PricingTable` (Clerk test payment gateway in dev) and
+   confirm the plan badge and channel/history limits update without a
+   manual page refresh (that's `PlanSync` calling `session.reload()`).
+5. Invite a 6th member on Free and confirm Clerk blocks it.

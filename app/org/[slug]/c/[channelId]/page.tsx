@@ -15,6 +15,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Hash, Lock, LogOut, Trash2 } from "lucide-react";
 import { MessageList } from "@/components/message-list";
 import { MessageComposer } from "@/components/message-composer";
@@ -54,7 +55,20 @@ export default function ChannelPage({
   const canModerate = isLoaded && !!has?.({ permission: "org:messages:moderate" });
   const isMember = !!me && (members?.some((m) => m.userId === me._id) ?? false);
 
-  if (channel === undefined) return null;
+  if (channel === undefined) {
+    return (
+      <div className="flex flex-1 flex-col">
+        <header className="flex items-center gap-2 border-b px-4 py-3">
+          <Skeleton className="h-5 w-32" />
+        </header>
+        <div className="flex-1 space-y-3 p-4">
+          <Skeleton className="h-10 w-2/3" />
+          <Skeleton className="h-10 w-1/2" />
+          <Skeleton className="h-10 w-3/5" />
+        </div>
+      </div>
+    );
+  }
   if (channel === null) {
     return (
       <div className="flex flex-1 items-center justify-center p-6 text-muted-foreground">

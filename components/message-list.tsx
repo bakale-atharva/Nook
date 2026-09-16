@@ -9,6 +9,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import { convexErrorMessage } from "@/lib/convex-errors";
 import { Pencil, Trash2, X, Check, Sparkles } from "lucide-react";
 
@@ -195,6 +196,19 @@ export function MessageList({
       )}
       {status === "LoadingMore" && (
         <p className="pb-2 text-center text-xs text-muted-foreground">Loading…</p>
+      )}
+      {status === "LoadingFirstPage" && (
+        <div className="space-y-3 px-4 py-2">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-start gap-3">
+              <Skeleton className="size-8 shrink-0 rounded-full" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            </div>
+          ))}
+        </div>
       )}
       {chronological.length === 0 && status !== "LoadingFirstPage" && (
         <p className="flex-1 px-4 py-8 text-center text-sm text-muted-foreground">
