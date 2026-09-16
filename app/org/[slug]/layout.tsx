@@ -24,7 +24,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateChannelDialog } from "@/components/create-channel-dialog";
-import { Hash, Lock, Settings } from "lucide-react";
+import { PlanSync } from "@/components/plan-sync";
+import { Hash, Lock, Settings, Sparkles, TriangleAlert } from "lucide-react";
 
 const FREE_CHANNEL_LIMIT = 5;
 
@@ -38,10 +39,14 @@ export default function WorkspaceLayout({
   const { has, isLoaded: authLoaded } = useAuth();
   const { organization, isLoaded: orgLoaded } = useOrganization();
   const channels = useQuery(api.channels.list);
+  const org = useQuery(api.organizations.current);
 
   const canManageChannels = authLoaded && !!has?.({ permission: "org:channels:manage" });
   const canPrivateChannels = authLoaded && !!has?.({ permission: "org:private_channels:manage" });
+  const canManageBilling = authLoaded && !!has?.({ permission: "org:sys_billing:manage" });
   const isUnlimited = authLoaded && !!has?.({ feature: "unlimited_channels" });
+  const isPro = authLoaded && !!has?.({ plan: "org:pro" });
+  const isPastDue = org?.subscriptionStatus === "past_due";
 
   // organizationSyncOptions keeps the active org matched to :slug; if it
   // couldn't (org doesn't exist or the user lost access), organization here
@@ -51,13 +56,32 @@ export default function WorkspaceLayout({
 
   return (
     <SidebarProvider>
+      <PlanSync />
       <Sidebar>
-        <SidebarHeader className="p-2">
+        <SidebarHeader className="gap-2 p-2">
           <OrganizationSwitcher
             afterSelectOrganizationUrl="/org/:slug"
             afterCreateOrganizationUrl="/org/:slug"
             hidePersonal
           />
+          <div className="flex items-center justify-between px-1">
+            <Badge variant={isPro ? "default" : "secondary"}>
+              {isPro ? "Pro" : "Free"}
+            </Badge>
+            {organization && (
+              <span className="text-xs text-muted-foreground">
+                {organization.membersCount}/{organization.maxAllowedMemberships} members
+              </span>
+            )}
+          </div>
+          {!isPro && (
+            <Link
+              href={`/org/${params.slug}/upgrade`}
+              className="flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <Sparkles className="size-3.5" /> Upgrade to Pro
+            </Link>
+          )}
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
@@ -136,6 +160,17 @@ export default function WorkspaceLayout({
         <header className="flex h-12 items-center gap-2 border-b px-3">
           <SidebarTrigger />
         </header>
+        {isPastDue && canManageBilling && (
+          <div className="flex items-center gap-2 border-b bg-destructive/10 px-4 py-2 text-sm text-destructive">
+            <TriangleAlert className="size-4 shrink-0" />
+            <span className="flex-1">
+              Your last payment failed. Update billing to keep your Pro features.
+            </span>
+            <Link href={`/org/${params.slug}/settings`} className="font-medium underline">
+              Fix billing
+            </Link>
+          </div>
+        )}
         {slugMismatch ? (
           <div className="flex flex-1 items-center justify-center p-6 text-center">
             <div className="space-y-3">

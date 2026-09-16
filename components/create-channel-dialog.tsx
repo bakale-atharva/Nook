@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useMutation } from "convex/react";
+import { ConvexError } from "convex/values";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
@@ -18,7 +20,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { UpgradeDialog } from "@/components/upgrade-dialog";
 import { Plus } from "lucide-react";
+
+function isPlanLimit(err: unknown): boolean {
+  return err instanceof ConvexError && (err.data as { code?: string })?.code === "PLAN_LIMIT";
+}
 
 export function CreateChannelDialog({
   orgSlug,
@@ -28,6 +35,7 @@ export function CreateChannelDialog({
   canCreatePrivate: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
@@ -50,13 +58,19 @@ export function CreateChannelDialog({
       setIsPrivate(false);
       router.push(`/org/${orgSlug}/c/${channelId}`);
     } catch (err) {
-      toast.error(convexErrorMessage(err));
+      if (isPlanLimit(err)) {
+        setOpen(false);
+        setUpgradeOpen(true);
+      } else {
+        toast.error(convexErrorMessage(err));
+      }
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button variant="ghost" size="icon" aria-label="Create channel" />}>
         <Plus />
@@ -109,7 +123,14 @@ export function CreateChannelDialog({
                 Make private
                 {!canCreatePrivate && (
                   <span className="block text-muted-foreground">
-                    Private channels are a Pro feature.
+                    Private channels are a Pro feature.{" "}
+                    <Link
+                      href={`/org/${orgSlug}/upgrade`}
+                      className="font-medium underline"
+                      onClick={() => setOpen(false)}
+                    >
+                      Upgrade
+                    </Link>
                   </span>
                 )}
               </span>
@@ -123,5 +144,12 @@ export function CreateChannelDialog({
         </form>
       </DialogContent>
     </Dialog>
+    <UpgradeDialog
+      open={upgradeOpen}
+      onOpenChange={setUpgradeOpen}
+      orgSlug={orgSlug}
+      reason="Free orgs are limited to 5 channels. Upgrade to Pro for unlimited channels."
+    />
+    </>
   );
 }

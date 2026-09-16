@@ -135,6 +135,7 @@ export default function ChannelPage({
             channelId={channelId as Id<"channels">}
             currentUserId={me?._id}
             canModerate={canModerate}
+            orgSlug={slug}
           />
           <TypingIndicator channelId={channelId as Id<"channels">} />
           <MessageComposer channelId={channelId as Id<"channels">} channelName={channel.name} />
