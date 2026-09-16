@@ -22,6 +22,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateChannelDialog } from "@/components/create-channel-dialog";
 import { PlanSync } from "@/components/plan-sync";
@@ -75,12 +76,15 @@ export default function WorkspaceLayout({
             )}
           </div>
           {!isPro && (
-            <Link
-              href={`/org/${params.slug}/upgrade`}
-              className="flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            <Button
+              variant="cta"
+              size="sm"
+              nativeButton={false}
+              className="w-full justify-center"
+              render={<Link href={`/org/${params.slug}/upgrade`} />}
             >
               <Sparkles className="size-3.5" /> Upgrade to Pro
-            </Link>
+            </Button>
           )}
         </SidebarHeader>
         <SidebarContent>

@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { SignUp } from "@clerk/nextjs";
+import { MarketingShell } from "@/components/marketing-shell";
 
 export default function SignUpPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
-      <Link href="/" className="text-lg font-semibold">
+    <MarketingShell className="items-center justify-center gap-6 px-6 py-16">
+      <Link href="/" className="font-heading text-lg font-semibold">
         Nook
       </Link>
       <SignUp />
-    </div>
+    </MarketingShell>
   );
 }

@@ -69,7 +69,12 @@ export function MessageComposer({
         className="min-h-11 flex-1 resize-none"
         maxLength={4000}
       />
-      <Button type="submit" size="icon" disabled={!body.trim() || sending}>
+      <Button
+        type="submit"
+        variant="cta"
+        size="icon"
+        disabled={!body.trim() || sending}
+      >
         <Send />
       </Button>
     </form>

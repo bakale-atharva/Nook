@@ -137,7 +137,7 @@ export function CreateChannelDialog({
             </label>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={submitting || !name.trim()}>
+            <Button variant="cta" type="submit" disabled={submitting || !name.trim()}>
               {submitting ? "Creating…" : "Create channel"}
             </Button>
           </DialogFooter>
