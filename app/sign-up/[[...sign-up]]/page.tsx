@@ -7,8 +7,7 @@ export default function SignUpPage() {
       <SignUp
         appearance={{
           elements: {
-            rootBox: "w-full h-full",
-            cardBox: "w-full h-full flex flex-col justify-center",
+            rootBox: "w-full",
           },
         }}
       />

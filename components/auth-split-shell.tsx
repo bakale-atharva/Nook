@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Hash, MessageSquare, Shield, Zap } from "lucide-react";
-import { ChatPreviewMockup } from "@/components/chat-preview-mockup";
 
 const HIGHLIGHTS = [
   { icon: Hash, text: "Channels for every topic, public or private." },
@@ -13,7 +12,7 @@ export function AuthSplitShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="hero-gradient scrollbar-hide flex h-dvh flex-col overflow-y-auto p-3 sm:p-6">
       <div className="relative mx-auto grid w-full max-w-5xl flex-1 overflow-hidden rounded-[2rem] border bg-card shadow-xl md:grid-cols-2">
-        <div className="flex flex-col justify-between gap-8 p-8 sm:p-10">
+        <div className="flex flex-col justify-center gap-8 p-8 sm:p-10">
           <Link href="/" className="font-heading text-lg font-semibold">
             Nook
           </Link>
@@ -35,9 +34,8 @@ export function AuthSplitShell({ children }: { children: React.ReactNode }) {
               ))}
             </ul>
           </div>
-          <ChatPreviewMockup className="hidden sm:block" />
         </div>
-        <div className="flex items-stretch justify-center border-t p-8 sm:border-t-0 sm:border-l">
+        <div className="flex items-center justify-center border-t p-8 sm:border-t-0 sm:border-l">
           {children}
         </div>
       </div>
