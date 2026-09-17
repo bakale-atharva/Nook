@@ -64,6 +64,40 @@ function readFeatures(identity: UserIdentity): string[] {
     .map((f) => (f.includes(":") ? f.split(":", 2)[1] : f));
 }
 
+/**
+ * Decodes Clerk's compact per-feature permission bitmask into fully
+ * qualified `org:<feature>:<action>` permission strings.
+ *
+ * `o.per` is a flat, feature-agnostic list of permission action names (e.g.
+ * "manage,moderate,read,send") — NOT "feature:action" pairs. `o.fpm` has one
+ * comma-separated bitmask per Feature, aligned to the `fea` claim's feature
+ * order. Each bit in a feature's mask (bit 0 = least significant = first
+ * entry in `o.per`) says whether that action applies to that feature. See
+ * https://clerk.com/docs/guides/sessions/session-tokens#decode-o-fpm-manually
+ */
+function decodeOrgPermissions(
+  per: string | undefined,
+  fpm: string | undefined,
+  features: string[],
+): Set<string> {
+  const actions = (per ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const masks = (fpm ?? "").split(",").map((m) => m.trim());
+  const permissions = new Set<string>();
+  features.forEach((feature, featureIndex) => {
+    const mask = Number(masks[featureIndex]);
+    if (!Number.isFinite(mask)) return;
+    actions.forEach((action, bitIndex) => {
+      if ((mask >> bitIndex) & 1) {
+        permissions.add(`org:${feature}:${action}`);
+      }
+    });
+  });
+  return permissions;
+}
+
 export type OrgIdentity = {
   identity: UserIdentity;
   orgId: string;
@@ -90,20 +124,14 @@ export async function requireOrgIdentity(ctx: {
   if (!org) {
     throw new ConvexError({ code: "NO_ACTIVE_ORG" });
   }
-  const permissions = new Set(
-    (org.per ?? "")
-      .split(",")
-      .map((p) => p.trim())
-      .filter(Boolean)
-      .map((p) => `org:${p}`),
-  );
+  const features = readFeatures(identity);
   return {
     identity,
     orgId: org.id,
     orgSlug: org.slg,
     role: `org:${org.rol}`,
-    permissions,
-    features: new Set(readFeatures(identity)),
+    permissions: decodeOrgPermissions(org.per, org.fpm, features),
+    features: new Set(features),
   };
 }
 
