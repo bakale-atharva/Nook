@@ -66,7 +66,7 @@ export function MessageComposer({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder={`Message #${channelName}`}
-        className="min-h-11 flex-1 resize-none"
+        className="min-h-11 flex-1 resize-none py-3"
         maxLength={4000}
       />
       <Button
