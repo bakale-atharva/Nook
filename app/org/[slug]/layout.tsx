@@ -127,7 +127,7 @@ export default function WorkspaceLayout({
                           <span className="truncate">{channel.name}</span>
                         </SidebarMenuButton>
                         {channel.unreadCount > 0 && (
-                          <SidebarMenuBadge>
+                          <SidebarMenuBadge className="font-tabular text-live">
                             {channel.unreadCapped ? "99+" : channel.unreadCount}
                           </SidebarMenuBadge>
                         )}

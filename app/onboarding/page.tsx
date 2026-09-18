@@ -12,11 +12,11 @@ import { MarketingShell } from "@/components/marketing-shell";
 export default function OnboardingPage() {
   return (
     <MarketingShell>
-      <header className="flex items-center justify-between px-6 py-4">
+      <header className="mb-6 flex items-center justify-between">
         <span className="font-heading text-lg font-semibold">Nook</span>
         <UserButton />
       </header>
-      <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
+      <div className="flex flex-col items-center gap-6 text-center">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold">Welcome to Nook</h1>
           <p className="text-sm text-muted-foreground">

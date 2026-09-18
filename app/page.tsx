@@ -11,32 +11,32 @@ import {
 } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { ChatPreviewMockup } from "@/components/chat-preview-mockup";
-import { Hash, MessageSquare, Shield, Zap } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const FEATURES = [
+const SPEC_ROWS = [
   {
-    icon: Hash,
-    title: "Channels for every topic",
+    tag: "#channels",
+    title: "One sheet per conversation",
     description:
-      "Organize conversations by team, project, or topic. Admins create and manage channels; everyone can join public ones.",
+      "Channels are sheets in your organization's set — create them for a team, a project, or a topic, and archive them when the work is done.",
   },
   {
-    icon: MessageSquare,
-    title: "Real-time messaging",
+    tag: "#realtime",
+    title: "Nothing to refresh",
     description:
-      "Messages, edits, and typing indicators sync instantly across your team, powered by Convex's reactive backend.",
+      "Messages, edits, and typing state sync the moment they happen, powered by Convex's reactive backend.",
   },
   {
-    icon: Shield,
-    title: "Role-based access",
+    tag: "#access",
+    title: "Scoped to the room",
     description:
       "Admins and members get exactly the permissions they need, enforced by Clerk Organizations on every request.",
   },
   {
-    icon: Zap,
-    title: "Built for teams, not individuals",
+    tag: "#workspace",
+    title: "One org, one plan",
     description:
-      "Every organization is its own isolated workspace with its own members, channels, and billing.",
+      "Every organization is its own isolated workspace, with its own members, channels, and billing — never mixed with another team's.",
   },
 ];
 
@@ -44,12 +44,23 @@ function LandingHeader() {
   const { organization } = useOrganization();
 
   return (
-    <header className="flex items-center justify-between px-6 py-4">
-      <span className="font-heading text-lg font-semibold">Nook</span>
+    <header className="flex items-center justify-between px-6 py-5 sm:px-10">
+      <div className="flex items-center gap-2.5">
+        <span className="flex size-7 items-center justify-center rounded-[5px] bg-hero-live font-mono text-xs font-bold text-hero-live-foreground">
+          N
+        </span>
+        <span className="font-heading text-lg font-semibold text-hero-foreground">
+          Nook
+        </span>
+      </div>
       <div className="flex items-center gap-3">
         <Show when="signed-out">
           <SignInButton>
-            <Button variant="ghost" size="sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-hero-foreground hover:bg-white/10 hover:text-hero-foreground"
+            >
               Sign in
             </Button>
           </SignInButton>
@@ -62,6 +73,7 @@ function LandingHeader() {
         <Show when="signed-in">
           <Button
             size="sm"
+            variant="cta"
             nativeButton={false}
             render={<Link href={organization ? `/org/${organization.slug}` : "/onboarding"} />}
           >
@@ -76,75 +88,90 @@ function LandingHeader() {
 
 export default function LandingPage() {
   return (
-    <div className="scrollbar-hide flex h-dvh flex-col overflow-y-auto bg-background">
-      <div className="hero-gradient px-3 pt-3 sm:px-6 sm:pt-6">
-        <div className="relative mx-auto flex w-full max-w-6xl flex-col rounded-[2rem] border bg-card shadow-xl">
-          <LandingHeader />
+    <div className="scrollbar-hide h-dvh overflow-y-auto bg-background">
+      <div className="blueprint-grid relative bg-hero">
+        <LandingHeader />
 
-          <section className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 pt-12 pb-28 text-center sm:pt-16 sm:pb-36">
-            <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-              Team chat for organizations that mean business.
+        <section className="relative mx-auto grid w-full max-w-6xl gap-16 px-6 pt-8 pb-32 sm:grid-cols-2 sm:items-center sm:px-10 sm:pt-12 sm:pb-40">
+          <div className="flex flex-col gap-7">
+            <h1 className="max-w-lg text-4xl font-semibold tracking-[-0.02em] text-hero-foreground sm:text-5xl">
+              Team chat, drafted calmer.
             </h1>
-            <p className="max-w-xl text-lg text-muted-foreground">
-              Nook is real-time, organization-scoped messaging: channels,
-              roles, and billing all managed per team — no personal accounts,
-              no confusion about who&apos;s in the room.
+            <p className="max-w-md text-lg text-hero-muted">
+              Nook lays your organization out as a set of sheets, not a feed
+              to keep up with. Real-time messaging, scoped per team, without
+              Discord&apos;s noise or Slack&apos;s sprawl.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Show when="signed-out">
                 <SignUpButton>
                   <Button variant="cta" size="lg">
-                    Get started free
+                    Start free
                   </Button>
                 </SignUpButton>
                 <SignInButton>
-                  <Button size="lg" variant="outline">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="border-hero-border bg-transparent text-hero-foreground hover:bg-white/10 hover:text-hero-foreground"
+                  >
                     Sign in
                   </Button>
                 </SignInButton>
               </Show>
             </div>
-          </section>
+          </div>
 
-          <ChatPreviewMockup className="absolute -bottom-14 left-1/2 hidden w-[min(90%,640px)] -translate-x-1/2 sm:-bottom-20 sm:block" />
-        </div>
+          <ChatPreviewMockup className="mx-auto h-64 w-full max-w-sm sm:h-72" />
+        </section>
       </div>
 
-      <div className="h-14 sm:h-24" />
-
-      <main className="flex-1">
-        <section className="px-6 py-16">
-          <div className="mx-auto grid max-w-5xl gap-8 sm:grid-cols-2">
-            {FEATURES.map(({ icon: Icon, title, description }) => (
-              <div
-                key={title}
-                className="flex gap-4 rounded-2xl border bg-card p-5"
-              >
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted">
-                  <Icon className="size-5" />
+      <main>
+        <section className="border-b px-6 py-20 sm:px-10">
+          <div className="mx-auto max-w-4xl">
+            <h2 className="mb-10 text-2xl font-semibold">
+              What&apos;s on the sheet
+            </h2>
+            <div className="rounded-[calc(var(--radius-lg)+4px)] border">
+              {SPEC_ROWS.map((row, i) => (
+                <div
+                  key={row.tag}
+                  className={cn(
+                    "grid gap-2 px-6 py-6 sm:grid-cols-[9rem_1fr] sm:gap-8 sm:px-8",
+                    i !== 0 && "border-t"
+                  )}
+                >
+                  <span className="font-mono text-sm text-primary">
+                    {row.tag}
+                  </span>
+                  <div>
+                    <h3 className="font-medium">{row.title}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {row.description}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-medium">{title}</h3>
-                  <p className="text-sm text-muted-foreground">{description}</p>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
 
-        <section id="pricing" className="border-t px-6 py-16">
+        <section id="pricing" className="px-6 py-20 sm:px-10">
           <div className="mx-auto max-w-3xl">
-            <div className="mb-8 text-center">
-              <h2 className="text-2xl font-semibold">Simple, org-based pricing</h2>
-              <p className="text-muted-foreground">
-                Every organization gets its own plan. Start free, upgrade when you outgrow it.
+            <div className="mb-10">
+              <h2 className="text-2xl font-semibold">
+                Simple, org-based pricing
+              </h2>
+              <p className="mt-1 text-muted-foreground">
+                Every organization gets its own plan. Start free, upgrade
+                when you outgrow it.
               </p>
             </div>
             <Show when="signed-in">
               <PricingTable for="organization" />
             </Show>
             <Show when="signed-out">
-              <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-[calc(var(--radius-lg)+4px)] border border-dashed p-6 text-center text-sm text-muted-foreground">
                 Sign up and create an organization to see live pricing and
                 upgrade options.
               </div>
@@ -153,8 +180,9 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t px-6 py-6 text-center text-sm text-muted-foreground">
-        Nook — a B2B organization chat app.
+      <footer className="title-block border-t px-6 py-5 sm:px-10">
+        <span>Nook</span>
+        <span className="ml-auto">Team workspace chat</span>
       </footer>
     </div>
   );

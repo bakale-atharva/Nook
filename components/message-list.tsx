@@ -13,6 +13,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { convexErrorMessage } from "@/lib/convex-errors";
 import { Pencil, Trash2, X, Check, Sparkles } from "lucide-react";
 
+// Consecutive messages from the same author land in one visual group —
+// avatar and name shown once — when they're this close together.
+const GROUP_WINDOW_MS = 60_000;
+
 function initials(name: string) {
   return name
     .split(" ")
@@ -27,6 +31,30 @@ function formatTime(ms: number) {
   return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+function sameDay(a: number, b: number) {
+  const da = new Date(a);
+  const db = new Date(b);
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  );
+}
+
+// "Today" is the only relative label. Every other day — including
+// yesterday — shows its absolute date, with the year added once it's not
+// the current year.
+function formatDayLabel(ms: number): string {
+  const now = Date.now();
+  if (sameDay(ms, now)) return "Today";
+  const sameYear = new Date(ms).getFullYear() === new Date(now).getFullYear();
+  return new Date(ms).toLocaleDateString([], {
+    month: "long",
+    day: "numeric",
+    year: sameYear ? undefined : "numeric",
+  });
+}
+
 type MessageItem = {
   _id: Id<"messages">;
   _creationTime: number;
@@ -38,14 +66,28 @@ type MessageItem = {
   editedAt?: number;
 };
 
+function DateDivider({ label }: { label: string }) {
+  return (
+    <div className="my-3 flex items-center gap-3 px-4">
+      <span className="h-px flex-1 bg-border" />
+      <span className="font-mono text-[0.6875rem] tracking-[0.06em] text-muted-foreground uppercase">
+        {label}
+      </span>
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
 function MessageRow({
   message,
   isOwn,
   canModerate,
+  isGroupStart,
 }: {
   message: MessageItem;
   isOwn: boolean;
   canModerate: boolean;
+  isGroupStart: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.body);
@@ -71,22 +113,40 @@ function MessageRow({
     }
   }
 
+  const editedTag = message.editedAt && (
+    <span className="font-mono text-[0.6875rem] tracking-[0.04em] text-muted-foreground uppercase">
+      edited
+    </span>
+  );
+
   return (
-    <div className="group flex items-start gap-3 px-4 py-1.5 hover:bg-muted/50">
-      <Avatar className="mt-0.5 size-8 shrink-0">
-        <AvatarImage src={message.authorImageUrl} alt={message.authorName} />
-        <AvatarFallback className="text-xs">{initials(message.authorName)}</AvatarFallback>
-      </Avatar>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <span className="text-sm font-medium">{message.authorName}</span>
-          <span className="text-xs text-muted-foreground">
+    <div
+      className={`group flex items-start gap-3 px-4 hover:bg-muted/50 ${
+        isGroupStart ? "pt-2 pb-0.5" : "py-0.5"
+      }`}
+    >
+      <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center">
+        {isGroupStart ? (
+          <Avatar className="size-8">
+            <AvatarImage src={message.authorImageUrl} alt={message.authorName} />
+            <AvatarFallback className="text-xs">{initials(message.authorName)}</AvatarFallback>
+          </Avatar>
+        ) : (
+          <span className="hidden font-tabular text-[0.6875rem] text-muted-foreground group-hover:inline">
             {formatTime(message._creationTime)}
           </span>
-          {message.editedAt && (
-            <span className="text-xs text-muted-foreground">(edited)</span>
-          )}
-        </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        {isGroupStart && (
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-medium">{message.authorName}</span>
+            <span className="font-tabular text-xs text-muted-foreground">
+              {formatTime(message._creationTime)}
+            </span>
+            {editedTag}
+          </div>
+        )}
         {editing ? (
           <div className="mt-1 flex flex-col gap-2">
             <Textarea
@@ -112,7 +172,12 @@ function MessageRow({
             </div>
           </div>
         ) : (
-          <p className="whitespace-pre-wrap break-words text-sm">{message.body}</p>
+          <p className="whitespace-pre-wrap break-words text-sm">
+            {message.body}
+            {!isGroupStart && message.editedAt && (
+              <span className="ml-1.5">{editedTag}</span>
+            )}
+          </p>
         )}
       </div>
       {!editing && (isOwn || canModerate) && (
@@ -215,14 +280,27 @@ export function MessageList({
           No messages yet. Say hello!
         </p>
       )}
-      {chronological.map((message) => (
-        <MessageRow
-          key={message._id}
-          message={message}
-          isOwn={message.authorId === currentUserId}
-          canModerate={canModerate}
-        />
-      ))}
+      {chronological.map((message, i) => {
+        const prev = chronological[i - 1];
+        const dayChanged = !prev || !sameDay(prev._creationTime, message._creationTime);
+        const dayLabel = dayChanged ? formatDayLabel(message._creationTime) : null;
+        const isGroupStart =
+          dayChanged ||
+          prev.authorId !== message.authorId ||
+          message._creationTime - prev._creationTime > GROUP_WINDOW_MS;
+
+        return (
+          <div key={message._id}>
+            {dayLabel && <DateDivider label={dayLabel} />}
+            <MessageRow
+              message={message}
+              isOwn={message.authorId === currentUserId}
+              canModerate={canModerate}
+              isGroupStart={isGroupStart}
+            />
+          </div>
+        );
+      })}
       <div ref={bottomRef} />
     </div>
   );

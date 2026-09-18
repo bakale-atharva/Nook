@@ -1,62 +1,85 @@
 import { cn } from "@/lib/utils";
 
-const CHANNELS = ["general", "design", "engineering"];
-
-const MESSAGES = [
-  { name: "Ari", text: "Shipped the new empty state 🎉" },
-  { name: "Sam", text: "Looks great — pushing to prod now." },
-];
+const SHEETS = [
+  {
+    channel: "roadmap",
+    rev: "REV A",
+    rotate: "-rotate-6 translate-x-[-64px]",
+    z: "z-10",
+    delay: "0ms",
+    author: "Priya",
+    message: "Cut the Q3 scope doc, ready for review.",
+    live: false,
+  },
+  {
+    channel: "design",
+    rev: "REV C",
+    rotate: "rotate-2 translate-x-[48px]",
+    z: "z-20",
+    delay: "90ms",
+    author: "Marcus",
+    message: "Pushed the new empty-state spec to the sheet.",
+    live: false,
+  },
+  {
+    channel: "general",
+    rev: "REV G",
+    rotate: "rotate-0",
+    z: "z-30",
+    delay: "180ms",
+    author: "Ada",
+    message: "Standup moved to 9:15 — see you on the line.",
+    live: true,
+  },
+] as const;
 
 export function ChatPreviewMockup({ className }: { className?: string }) {
   return (
     <div
       aria-hidden="true"
-      className={cn(
-        "overflow-hidden rounded-2xl border bg-card shadow-2xl",
-        className
-      )}
+      className={cn("relative isolate", className)}
     >
-      <div className="flex items-center gap-1.5 border-b bg-muted/60 px-4 py-2.5">
-        <span className="size-2.5 rounded-full bg-destructive/60" />
-        <span className="size-2.5 rounded-full bg-chart-1/60" />
-        <span className="size-2.5 rounded-full bg-chart-2/60" />
-        <span className="ml-3 text-xs font-medium text-muted-foreground">
-          # design
-        </span>
-      </div>
-      <div className="flex">
-        <div className="hidden w-36 shrink-0 flex-col gap-1 border-r p-3 sm:flex">
-          {CHANNELS.map((name, i) => (
-            <span
-              key={name}
-              className={cn(
-                "truncate rounded-md px-2 py-1.5 text-left text-xs",
-                i === 1
-                  ? "bg-primary/10 font-medium text-primary"
-                  : "text-muted-foreground"
+      {SHEETS.map((sheet) => (
+        // Outer div holds the fanned rotation/offset (the resting position);
+        // the inner div carries the one authored entrance, so the settle
+        // animation never fights the fan's own transform.
+        <div
+          key={sheet.channel}
+          className={cn("absolute inset-0 transition-transform", sheet.rotate, sheet.z)}
+        >
+          <div
+            className="animate-fan-in flex h-full flex-col overflow-hidden rounded-[calc(var(--radius-lg)+4px)] bg-card text-left shadow-sheet-lg"
+            style={{ animationDelay: sheet.delay }}
+          >
+            <div className="title-block border-border px-4 py-2">
+              <span>#{sheet.channel}</span>
+              <span className="ml-auto font-tabular">{sheet.rev}</span>
+              {sheet.live && (
+                <span className="flex items-center gap-1 text-live">
+                  <span className="size-1.5 rounded-full bg-live" />
+                  live
+                </span>
               )}
-            >
-              # {name}
-            </span>
-          ))}
-        </div>
-        <div className="flex flex-1 flex-col gap-3 p-4 text-left">
-          {MESSAGES.map((m) => (
-            <div key={m.name} className="flex items-start gap-2.5">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                {m.name[0]}
-              </span>
-              <div>
-                <p className="text-xs font-semibold">{m.name}</p>
-                <p className="text-xs text-muted-foreground">{m.text}</p>
-              </div>
             </div>
-          ))}
-          <div className="mt-1 rounded-full border bg-background px-3 py-2 text-xs text-muted-foreground">
-            Message #design
+            <div className="flex flex-1 flex-col gap-3 p-4">
+              <div className="flex items-start gap-2.5">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-[calc(var(--radius-sm)-2px)] bg-primary font-mono text-[10px] font-semibold text-primary-foreground">
+                  {sheet.author[0]}
+                </span>
+                <div>
+                  <p className="text-xs font-semibold">{sheet.author}</p>
+                  <p className="text-xs text-muted-foreground">{sheet.message}</p>
+                </div>
+              </div>
+              {sheet.live && (
+                <div className="mt-auto rounded-[calc(var(--radius-sm)-2px)] border border-dashed border-border px-3 py-2 font-mono text-[0.6875rem] tracking-[0.04em] text-muted-foreground uppercase">
+                  typing&hellip;
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 }
