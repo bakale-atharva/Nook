@@ -258,3 +258,20 @@
     animation: none;
   }
 }
+
+/* Clerk's shadcn theme reads --card/--card-foreground/--muted-foreground for
+   its trigger text. Those are page tokens (light surfaces); on the dark
+   blueprint-blue sidebar frame they render near-invisible. Scope Clerk's
+   always-visible trigger content (never its portaled popovers) to the
+   sidebar's own palette instead. */
+.clerk-on-sidebar {
+  --card: var(--sidebar);
+  --card-foreground: var(--sidebar-foreground);
+  --popover: var(--sidebar);
+  --popover-foreground: var(--sidebar-foreground);
+  --muted: var(--sidebar-accent);
+  --muted-foreground: color-mix(in oklch, var(--sidebar-foreground) 70%, var(--sidebar) 30%);
+  --foreground: var(--sidebar-foreground);
+  --border: var(--sidebar-border);
+  --input: var(--sidebar-border);
+}
