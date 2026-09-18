@@ -42,6 +42,7 @@ export function UpgradeDialog({
             Not now
           </Button>
           <Button
+            nativeButton={false}
             render={<Link href={`/org/${orgSlug}/upgrade`} />}
             onClick={() => onOpenChange(false)}
           >

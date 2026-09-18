@@ -1,6 +1,7 @@
 "use client";
 
 import { OrganizationList, UserButton } from "@clerk/nextjs";
+import { MarketingShell } from "@/components/marketing-shell";
 
 /**
  * Every user must belong to an Organization (Clerk Dashboard: "Allow
@@ -10,9 +11,9 @@ import { OrganizationList, UserButton } from "@clerk/nextjs";
  */
 export default function OnboardingPage() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b px-6 py-3">
-        <span className="text-lg font-semibold">Nook</span>
+    <MarketingShell>
+      <header className="flex items-center justify-between px-6 py-4">
+        <span className="font-heading text-lg font-semibold">Nook</span>
         <UserButton />
       </header>
       <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
@@ -28,6 +29,6 @@ export default function OnboardingPage() {
           afterCreateOrganizationUrl="/org/:slug"
         />
       </div>
-    </div>
+    </MarketingShell>
   );
 }

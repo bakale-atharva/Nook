@@ -66,10 +66,15 @@ export function MessageComposer({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder={`Message #${channelName}`}
-        className="min-h-11 flex-1 resize-none"
+        className="min-h-11 flex-1 resize-none py-3"
         maxLength={4000}
       />
-      <Button type="submit" size="icon" disabled={!body.trim() || sending}>
+      <Button
+        type="submit"
+        variant="cta"
+        size="icon"
+        disabled={!body.trim() || sending}
+      >
         <Send />
       </Button>
     </form>
