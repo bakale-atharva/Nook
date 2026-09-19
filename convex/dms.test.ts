@@ -3,29 +3,29 @@ import { api } from "./_generated/api";
 import { ORG, errorCode, firstPage, setup } from "../tests/support/convex";
 
 describe("direct messages", () => {
-  test("getOrCreate returns the same DM for the same people, in any order", async () => {
+  test("getOrCreate returns the same DM for the same two people, whoever opens it", async () => {
     const { asAlice, asBob, alice, bob } = await setup();
-    const first = await asAlice.mutation(api.dms.getOrCreate, { userIds: [bob] });
-    expect(await asAlice.mutation(api.dms.getOrCreate, { userIds: [bob] })).toBe(first);
-    expect(await asBob.mutation(api.dms.getOrCreate, { userIds: [alice] })).toBe(first);
+    const first = await asAlice.mutation(api.dms.getOrCreate, { userId: bob });
+    expect(await asAlice.mutation(api.dms.getOrCreate, { userId: bob })).toBe(first);
+    expect(await asBob.mutation(api.dms.getOrCreate, { userId: alice })).toBe(first);
   });
 
-  test("rejects people outside the org, yourself alone, and free plans", async () => {
+  test("rejects people outside the org, yourself, and free plans", async () => {
     const { asAlice, asAliceFree, alice, bob, dave } = await setup();
-    expect(await errorCode(asAlice.mutation(api.dms.getOrCreate, { userIds: [dave] }))).toBe(
+    expect(await errorCode(asAlice.mutation(api.dms.getOrCreate, { userId: dave }))).toBe(
       "NOT_FOUND",
     );
-    expect(await errorCode(asAlice.mutation(api.dms.getOrCreate, { userIds: [alice] }))).toBe(
+    expect(await errorCode(asAlice.mutation(api.dms.getOrCreate, { userId: alice }))).toBe(
       "INVALID_ARGUMENT",
     );
-    expect(await errorCode(asAliceFree.mutation(api.dms.getOrCreate, { userIds: [bob] }))).toBe(
+    expect(await errorCode(asAliceFree.mutation(api.dms.getOrCreate, { userId: bob }))).toBe(
       "PLAN_LIMIT",
     );
   });
 
   test("an admin who is not in the DM cannot see or post in it", async () => {
     const { asAlice, asBob, asCarolAdmin, bob } = await setup();
-    const dm = await asAlice.mutation(api.dms.getOrCreate, { userIds: [bob] });
+    const dm = await asAlice.mutation(api.dms.getOrCreate, { userId: bob });
     await asBob.mutation(api.messages.send, { channelId: dm, body: "secret" });
 
     // Carol holds org:private_channels:manage, which opens private channels
@@ -45,7 +45,7 @@ describe("direct messages", () => {
 
   test("DMs cannot be deleted, joined, left or extended", async () => {
     const { asAlice, asCarolAdmin, bob, carol } = await setup();
-    const dm = await asAlice.mutation(api.dms.getOrCreate, { userIds: [bob] });
+    const dm = await asAlice.mutation(api.dms.getOrCreate, { userId: bob });
     expect(await errorCode(asCarolAdmin.mutation(api.channels.remove, { channelId: dm }))).toBe(
       "INVALID_ARGUMENT",
     );
@@ -59,7 +59,7 @@ describe("direct messages", () => {
 
   test("a plan without the feature loses access to existing DMs, and gets them back", async () => {
     const { asAlice, asAliceFree, bob } = await setup();
-    const dm = await asAlice.mutation(api.dms.getOrCreate, { userIds: [bob] });
+    const dm = await asAlice.mutation(api.dms.getOrCreate, { userId: bob });
     await asAlice.mutation(api.messages.send, { channelId: dm, body: "hello" });
 
     expect((await asAliceFree.query(api.channels.list, {})).some((c) => c._id === dm)).toBe(false);

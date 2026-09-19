@@ -118,7 +118,7 @@ describe("joining and leaving", () => {
 
   test("listAddable is empty for a DM or a missing channel", async () => {
     const { t, asAlice, asCarolAdmin, bob, general } = await setup();
-    const dm = await asAlice.mutation(api.dms.getOrCreate, { userIds: [bob] });
+    const dm = await asAlice.mutation(api.dms.getOrCreate, { userId: bob });
     expect(await asCarolAdmin.query(api.channels.listAddable, { channelId: dm })).toEqual([]);
     await t.run((ctx) => ctx.db.delete(general));
     expect(await asCarolAdmin.query(api.channels.listAddable, { channelId: general })).toEqual([]);
@@ -163,7 +163,7 @@ describe("how deleted people appear", () => {
 
   test("dm participants show 'Deleted user' in the sidebar list", async () => {
     const { t, asAlice, bob } = await setup();
-    const dm = await asAlice.mutation(api.dms.getOrCreate, { userIds: [bob] });
+    const dm = await asAlice.mutation(api.dms.getOrCreate, { userId: bob });
     await t.run((ctx) => ctx.db.patch(bob, { deletedAt: 1, imageUrl: "https://img.example/bob.png" }));
     const entry = (await asAlice.query(api.channels.list, {})).find((c) => c._id === dm);
     expect(entry?.dmMembers.map((m) => [m.name, m.imageUrl]).sort()).toEqual([

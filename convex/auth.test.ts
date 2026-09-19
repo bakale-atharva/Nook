@@ -60,7 +60,7 @@ describe("identity", () => {
 describe("which error wins", () => {
   test("messages.list checks the channel before the user, typing.list the user first", async () => {
     const { t, asAlice, bob } = await setup();
-    const dm = await asAlice.mutation(api.dms.getOrCreate, { userIds: [bob] });
+    const dm = await asAlice.mutation(api.dms.getOrCreate, { userId: bob });
     // Unsynced person on a plan without DMs.
     const stranger = t.withIdentity(identity({ name: "erin", plan: "free" }));
     expect(await errorData(firstPage(stranger, dm))).toEqual({
@@ -80,7 +80,7 @@ describe("which error wins", () => {
 
   test("historyHidden never throws on channels you can't see", async () => {
     const { asAliceFree, asCarolAdmin, asAlice, bob } = await setup();
-    const dm = await asAlice.mutation(api.dms.getOrCreate, { userIds: [bob] });
+    const dm = await asAlice.mutation(api.dms.getOrCreate, { userId: bob });
     expect(await asCarolAdmin.query(api.messages.historyHidden, { channelId: dm })).toBe(false);
     expect(await asAliceFree.query(api.messages.historyHidden, { channelId: dm })).toBe(false);
   });

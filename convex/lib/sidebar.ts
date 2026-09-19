@@ -4,7 +4,7 @@ import { hasFeature, type OrgIdentity } from "./auth";
 import { isDm } from "./channelAccess";
 import {
   FEATURES,
-  MAX_DM_MEMBERS_SHOWN,
+  DM_MEMBER_COUNT,
   MAX_ROWS_LISTED,
   UNREAD_CAP,
 } from "./constants";
@@ -82,7 +82,7 @@ export async function listSidebarChannels(
         const rows = await ctx.db
           .query("channelMembers")
           .withIndex("by_channel_user", (q) => q.eq("channelId", channel._id))
-          .take(MAX_DM_MEMBERS_SHOWN);
+          .take(DM_MEMBER_COUNT);
         dmMembers = await Promise.all(
           rows.map(async (row) => {
             const u = await ctx.db.get(row.userId);

@@ -46,8 +46,8 @@ export const MAX_MENTIONS = 20;
 
 // --- Direct messages and sidebar -----------------------------------------
 
-export const MAX_DM_PARTICIPANTS = 8;
-export const MAX_DM_MEMBERS_SHOWN = 8;
+/** DMs are strictly one-to-one: the caller and one other person. */
+export const DM_MEMBER_COUNT = 2;
 export const UNREAD_CAP = 99;
 
 // --- Query and cleanup bounds --------------------------------------------

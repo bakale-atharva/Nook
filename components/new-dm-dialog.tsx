@@ -15,28 +15,24 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { UpgradeDialog } from "@/components/upgrade-dialog";
-import { cn, initials } from "@/lib/utils";
-import { Check, Plus } from "lucide-react";
-
-const MAX_PEOPLE = 7; // plus you = 8, matching convex/dms.ts
+import { initials } from "@/lib/utils";
+import { Plus } from "lucide-react";
 
 function isPlanLimit(err: unknown): boolean {
   return err instanceof ConvexError && (err.data as { code?: string })?.code === "PLAN_LIMIT";
 }
 
-/** Pick one person for a 1:1, or several for a group, and open the DM. */
+/** Pick a person and open the one-to-one direct message with them. */
 export function NewDmDialog({ orgSlug }: { orgSlug: string }) {
   const [open, setOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [filter, setFilter] = useState("");
-  const [selected, setSelected] = useState<Id<"users">[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const [opening, setOpening] = useState(false);
   const candidates = useQuery(api.dms.listCandidates, open ? {} : "skip");
   const getOrCreate = useMutation(api.dms.getOrCreate);
   const router = useRouter();
@@ -45,30 +41,15 @@ export function NewDmDialog({ orgSlug }: { orgSlug: string }) {
     c.name.toLowerCase().includes(filter.trim().toLowerCase()),
   );
 
-  function toggle(userId: Id<"users">) {
-    setSelected((current) =>
-      current.includes(userId)
-        ? current.filter((id) => id !== userId)
-        : current.length >= MAX_PEOPLE
-          ? current
-          : [...current, userId],
-    );
-  }
-
   function onOpenChange(next: boolean) {
     setOpen(next);
-    if (!next) {
-      setFilter("");
-      setSelected([]);
-    }
+    if (!next) setFilter("");
   }
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (selected.length === 0) return;
-    setSubmitting(true);
+  async function openConversation(userId: Id<"users">) {
+    setOpening(true);
     try {
-      const channelId = await getOrCreate({ userIds: selected });
+      const channelId = await getOrCreate({ userId });
       onOpenChange(false);
       router.push(`/org/${orgSlug}/c/${channelId}`);
     } catch (err) {
@@ -79,7 +60,7 @@ export function NewDmDialog({ orgSlug }: { orgSlug: string }) {
         toast.error(convexErrorMessage(err, "Couldn't start that conversation."));
       }
     } finally {
-      setSubmitting(false);
+      setOpening(false);
     }
   }
 
@@ -92,76 +73,49 @@ export function NewDmDialog({ orgSlug }: { orgSlug: string }) {
           <Plus />
         </DialogTrigger>
         <DialogContent>
-          <form onSubmit={onSubmit}>
-            <DialogHeader>
-              <DialogTitle>New message</DialogTitle>
-              <DialogDescription>
-                Pick one person, or several to start a group conversation.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-3 py-4">
-              <Input
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder="Search people"
-                aria-label="Search people"
-                autoFocus
-              />
-              <ul
-                aria-label="People"
-                className="max-h-64 space-y-0.5 overflow-y-auto"
-              >
-                {candidates === undefined ? (
-                  <li className="px-2 py-2 text-sm text-muted-foreground">Loading…</li>
-                ) : visible.length === 0 ? (
-                  <li className="px-2 py-2 text-sm text-muted-foreground">
-                    {candidates.length === 0
-                      ? "No one else is in this organization yet."
-                      : "No one matches that search."}
+          <DialogHeader>
+            <DialogTitle>New message</DialogTitle>
+            <DialogDescription>Pick someone to message directly.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <Input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Search people"
+              aria-label="Search people"
+              autoFocus
+            />
+            <ul aria-label="People" className="max-h-64 space-y-0.5 overflow-y-auto">
+              {candidates === undefined ? (
+                <li className="px-2 py-2 text-sm text-muted-foreground">Loading…</li>
+              ) : visible.length === 0 ? (
+                <li className="px-2 py-2 text-sm text-muted-foreground">
+                  {candidates.length === 0
+                    ? "No one else is in this organization yet."
+                    : "No one matches that search."}
+                </li>
+              ) : (
+                visible.map((person) => (
+                  <li key={person.userId}>
+                    <button
+                      type="button"
+                      disabled={opening}
+                      onClick={() => openConversation(person.userId)}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+                    >
+                      <Avatar className="size-7">
+                        <AvatarImage src={person.imageUrl} alt="" />
+                        <AvatarFallback className="text-xs">
+                          {initials(person.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="flex-1 truncate text-sm">{person.name}</span>
+                    </button>
                   </li>
-                ) : (
-                  visible.map((person) => {
-                    const isSelected = selected.includes(person.userId);
-                    return (
-                      <li key={person.userId}>
-                        <button
-                          type="button"
-                          role="checkbox"
-                          aria-checked={isSelected}
-                          onClick={() => toggle(person.userId)}
-                          className={cn(
-                            "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
-                            isSelected && "bg-primary/10",
-                          )}
-                        >
-                          <Avatar className="size-7">
-                            <AvatarImage src={person.imageUrl} alt="" />
-                            <AvatarFallback className="text-xs">
-                              {initials(person.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="flex-1 truncate text-sm">{person.name}</span>
-                          {isSelected && <Check className="size-4 text-primary" />}
-                        </button>
-                      </li>
-                    );
-                  })
-                )}
-              </ul>
-            </div>
-            <DialogFooter>
-              <span className="mr-auto self-center font-tabular text-xs text-muted-foreground">
-                {selected.length} selected
-              </span>
-              <Button
-                variant="cta"
-                type="submit"
-                disabled={submitting || selected.length === 0}
-              >
-                {submitting ? "Opening…" : "Start conversation"}
-              </Button>
-            </DialogFooter>
-          </form>
+                ))
+              )}
+            </ul>
+          </div>
         </DialogContent>
       </Dialog>
       <UpgradeDialog

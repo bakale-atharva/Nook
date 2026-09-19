@@ -45,8 +45,8 @@ export default defineSchema({
     description: v.optional(v.string()),
     isPrivate: v.boolean(),
     createdBy: v.id("users"),
-    // Direct messages are channels with a `dmKey` (sorted member ids joined
-    // by ","), always private with an empty name. Regular channels leave it
+    // Direct messages are one-to-one channels with a `dmKey` (the two member
+    // ids, sorted and joined by ","), always private with an empty name. Regular channels leave it
     // undefined, so `eq("dmKey", undefined)` on by_org_dm_key lists exactly
     // the regular channels.
     dmKey: v.optional(v.string()),
