@@ -1,5 +1,4 @@
-"use client";
-
+import { auth } from "@clerk/nextjs/server";
 import { OrganizationList, UserButton } from "@clerk/nextjs";
 import { MarketingShell } from "@/components/marketing-shell";
 
@@ -9,7 +8,12 @@ import { MarketingShell } from "@/components/marketing-shell";
  * lands users here to create one or accept a pending invite. Once an org is
  * active, proxy.ts's organizationSyncOptions carries it into /org/:slug URLs.
  */
-export default function OnboardingPage() {
+export default async function OnboardingPage() {
+  // A session that still has that task to finish is "pending"; this is the
+  // page where it finishes, so it must not be treated as signed out here.
+  const { userId, redirectToSignIn } = await auth({ treatPendingAsSignedOut: false });
+  if (!userId) return redirectToSignIn();
+
   return (
     <MarketingShell>
       <header className="mb-6 flex items-center justify-between">

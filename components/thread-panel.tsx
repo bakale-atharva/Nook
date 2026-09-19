@@ -20,9 +20,6 @@ import { X } from "lucide-react";
 
 type ThreadProps = {
   rootId: Id<"messages">;
-  channelId: Id<"channels">;
-  currentUserId: Id<"users"> | undefined;
-  canModerate: boolean;
   onClose: () => void;
 };
 
@@ -44,7 +41,7 @@ function ThreadHeader({
   );
 }
 
-function ThreadBody({ rootId, channelId, currentUserId, canModerate, onClose }: ThreadProps) {
+function ThreadBody({ rootId, onClose }: ThreadProps) {
   const thread = useQuery(api.messages.listThread, { rootId });
   const bottomRef = useScrollToNewest(thread?.replies.at(-1)?._id);
 
@@ -74,8 +71,6 @@ function ThreadBody({ rootId, channelId, currentUserId, canModerate, onClose }: 
             <>
               <MessageItem
                 message={thread.root}
-                currentUserId={currentUserId}
-                canModerate={canModerate}
                 isGroupStart
                 threadRootId={rootId}
               />
@@ -93,8 +88,6 @@ function ThreadBody({ rootId, channelId, currentUserId, canModerate, onClose }: 
                 <MessageItem
                   key={reply._id}
                   message={reply}
-                  currentUserId={currentUserId}
-                  canModerate={canModerate}
                   isGroupStart={startsGroup(thread.replies[i - 1], reply)}
                   threadRootId={rootId}
                 />
@@ -103,7 +96,7 @@ function ThreadBody({ rootId, channelId, currentUserId, canModerate, onClose }: 
           )}
           <div ref={bottomRef} />
         </div>
-        <MessageComposer channelId={channelId} threadRootId={rootId} placeholder="Reply in thread…" />
+        <MessageComposer threadRootId={rootId} placeholder="Reply in thread…" />
       </DropZone>
     </ComposerProvider>
   );

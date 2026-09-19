@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { MAX_ATTACHMENTS, MAX_BODY_LENGTH } from "@/convex/lib/constants";
 import { AttachmentPreviewList } from "@/components/attachment-preview-list";
+import { useChannelPane } from "@/components/channel/channel-context";
 import { useComposer } from "@/components/composer-provider";
 import { MentionTextarea } from "@/components/mention-textarea";
 import { Button } from "@/components/ui/button";
@@ -23,15 +24,14 @@ import { ImagePlus, Send } from "lucide-react";
  * doesn't announce typing.
  */
 export function MessageComposer({
-  channelId,
   placeholder,
   threadRootId,
 }: {
-  channelId: Id<"channels">;
   placeholder: string;
   /** Set when composing a reply: the message goes into that thread. */
   threadRootId?: Id<"messages">;
 }) {
+  const { channelId } = useChannelPane();
   const [sending, setSending] = useState(false);
   const send = useMutation(api.messages.send);
   const draft = useMentionDraft();

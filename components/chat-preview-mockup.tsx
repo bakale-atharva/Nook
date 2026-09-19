@@ -33,52 +33,55 @@ const SHEETS = [
   },
 ] as const;
 
-export function ChatPreviewMockup({ className }: { className?: string }) {
+type Sheet = (typeof SHEETS)[number];
+
+/** One fanned "sheet" of the preview: a channel title block over a single message. */
+function PreviewSheet({ sheet }: { sheet: Sheet }) {
   return (
-    <div
-      aria-hidden="true"
-      className={cn("relative isolate", className)}
-    >
-      {SHEETS.map((sheet) => (
-        // Outer div holds the fanned rotation/offset (the resting position);
-        // the inner div carries the one authored entrance, so the settle
-        // animation never fights the fan's own transform.
-        <div
-          key={sheet.channel}
-          className={cn("absolute inset-0 transition-transform", sheet.rotate, sheet.z)}
-        >
-          <div
-            className="animate-fan-in flex h-full flex-col overflow-hidden rounded-[calc(var(--radius-lg)+4px)] bg-card text-left shadow-sheet-lg"
-            style={{ animationDelay: sheet.delay }}
-          >
-            <div className="title-block border-border px-4 py-2">
-              <span>#{sheet.channel}</span>
-              <span className="ml-auto font-tabular">{sheet.rev}</span>
-              {sheet.live && (
-                <span className="flex items-center gap-1 text-live">
-                  <span className="size-1.5 rounded-full bg-live" />
-                  live
-                </span>
-              )}
-            </div>
-            <div className="flex flex-1 flex-col gap-3 p-4">
-              <div className="flex items-start gap-2.5">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-[calc(var(--radius-sm)-2px)] bg-primary font-mono text-[10px] font-semibold text-primary-foreground">
-                  {sheet.author[0]}
-                </span>
-                <div>
-                  <p className="text-xs font-semibold">{sheet.author}</p>
-                  <p className="text-xs text-muted-foreground">{sheet.message}</p>
-                </div>
-              </div>
-              {sheet.live && (
-                <div className="mt-auto rounded-[calc(var(--radius-sm)-2px)] border border-dashed border-border px-3 py-2 font-mono text-[0.6875rem] tracking-[0.04em] text-muted-foreground uppercase">
-                  typing&hellip;
-                </div>
-              )}
+    // Outer div holds the fanned rotation/offset (the resting position); the
+    // inner div carries the one authored entrance, so the settle animation
+    // never fights the fan's own transform.
+    <div className={cn("absolute inset-0", sheet.rotate, sheet.z)}>
+      <div
+        className="animate-fan-in flex h-full flex-col overflow-hidden rounded-[calc(var(--radius-lg)+4px)] bg-card text-left shadow-sheet-lg"
+        style={{ animationDelay: sheet.delay }}
+      >
+        <div className="title-block border-border px-4 py-2">
+          <span>#{sheet.channel}</span>
+          <span className="ml-auto font-tabular">{sheet.rev}</span>
+          {sheet.live && (
+            <span className="flex items-center gap-1 text-live">
+              <span className="size-1.5 rounded-full bg-live" />
+              live
+            </span>
+          )}
+        </div>
+        <div className="flex flex-1 flex-col gap-3 p-4">
+          <div className="flex items-start gap-2.5">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-[calc(var(--radius-sm)-2px)] bg-primary font-mono text-[10px] font-semibold text-primary-foreground">
+              {sheet.author[0]}
+            </span>
+            <div>
+              <p className="text-xs font-semibold">{sheet.author}</p>
+              <p className="text-xs text-muted-foreground">{sheet.message}</p>
             </div>
           </div>
+          {sheet.live && (
+            <div className="text-label mt-auto rounded-[calc(var(--radius-sm)-2px)] border border-dashed border-border px-3 py-2">
+              typing&hellip;
+            </div>
+          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function ChatPreviewMockup({ className }: { className?: string }) {
+  return (
+    <div aria-hidden="true" className={cn("relative isolate", className)}>
+      {SHEETS.map((sheet) => (
+        <PreviewSheet key={sheet.channel} sheet={sheet} />
       ))}
     </div>
   );

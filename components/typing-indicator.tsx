@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
+import { useChannelPane } from "@/components/channel/channel-context";
 
 const names = new Intl.ListFormat([], { style: "long", type: "conjunction" });
 
@@ -12,7 +12,8 @@ function typingText(typers: string[]) {
   return `${names.format(typers)} ${typers.length === 1 ? "is" : "are"} typing…`;
 }
 
-export function TypingIndicator({ channelId }: { channelId: Id<"channels"> }) {
+export function TypingIndicator() {
+  const { channelId } = useChannelPane();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {

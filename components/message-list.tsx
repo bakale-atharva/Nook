@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePaginatedQuery, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { useChannelPane } from "@/components/channel/channel-context";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LabeledRule } from "@/components/labeled-rule";
@@ -46,18 +47,11 @@ function MessageListSkeleton() {
 }
 
 export function MessageList({
-  channelId,
-  currentUserId,
-  canModerate,
-  orgSlug,
   onOpenThread,
 }: {
-  channelId: Id<"channels">;
-  currentUserId: Id<"users"> | undefined;
-  canModerate: boolean;
-  orgSlug: string;
   onOpenThread: (rootId: Id<"messages">) => void;
 }) {
+  const { channelId, currentUserId, orgSlug } = useChannelPane();
   const { results, status, loadMore } = usePaginatedQuery(
     api.messages.list,
     { channelId },
@@ -115,8 +109,6 @@ export function MessageList({
             )}
             <MessageItem
               message={message}
-              currentUserId={currentUserId}
-              canModerate={canModerate}
               isGroupStart={startsGroup(prev, message, { breakOnDay: true })}
               onOpenThread={onOpenThread}
             />

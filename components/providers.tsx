@@ -3,7 +3,6 @@
 import { useAuth } from "@clerk/nextjs";
 import { ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { StoreUser } from "@/components/store-user";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -15,6 +14,11 @@ if (!convexUrl) {
 
 const convex = new ConvexReactClient(convexUrl);
 
+/**
+ * Everything the signed-in workspace needs and the marketing and auth pages
+ * don't: the Convex client wired to Clerk, tooltips, and toasts. Mounted by
+ * the /org layout only, so `convex/react` stays out of the other routes.
+ */
 export function ConvexClientProvider({
   children,
 }: {
@@ -23,7 +27,6 @@ export function ConvexClientProvider({
   return (
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
       <TooltipProvider>
-        <StoreUser />
         {children}
         <Toaster />
       </TooltipProvider>

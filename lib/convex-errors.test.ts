@@ -1,6 +1,11 @@
 import { ConvexError } from "convex/values";
 import { describe, expect, test } from "vitest";
-import { convexErrorMessage } from "./convex-errors";
+import {
+  convexErrorCode,
+  convexErrorMessage,
+  planLimitMessage,
+  planLimitOf,
+} from "./convex-errors";
 
 describe("convexErrorMessage", () => {
   test("uses the fallback for anything that isn't a ConvexError", () => {
@@ -35,5 +40,40 @@ describe("convexErrorMessage", () => {
     ).toBe("Taken!");
     expect(convexErrorMessage(new ConvexError({ code: "NOT_FOUND" }))).toBe("Not found.");
     expect(convexErrorMessage(new ConvexError({ code: "FORBIDDEN" }))).toMatch(/permission/);
+  });
+});
+
+describe("plan limits", () => {
+  test("planLimitOf recognises the limits the app can explain, and nothing else", () => {
+    expect(planLimitOf(new ConvexError({ code: "PLAN_LIMIT", limit: "channels", max: 5 }))).toBe(
+      "channels",
+    );
+    expect(planLimitOf(new ConvexError({ code: "PLAN_LIMIT", limit: "direct_messages" }))).toBe(
+      "direct_messages",
+    );
+    expect(planLimitOf(new ConvexError({ code: "PLAN_LIMIT", limit: "something_new" }))).toBeNull();
+    expect(planLimitOf(new ConvexError({ code: "PLAN_LIMIT" }))).toBeNull();
+    expect(planLimitOf(new ConvexError({ code: "FORBIDDEN" }))).toBeNull();
+    expect(planLimitOf(new ConvexError(null))).toBeNull();
+    expect(planLimitOf(new Error("PLAN_LIMIT"))).toBeNull();
+  });
+
+  test("the upgrade dialog and the error toast use the same wording", () => {
+    const error = new ConvexError({ code: "PLAN_LIMIT", limit: "channels", max: 7 });
+    expect(convexErrorMessage(error)).toBe(planLimitMessage("channels", 7));
+    expect(planLimitMessage("channels")).toMatch(/limited to 5 channels/);
+    expect(planLimitMessage("direct_messages")).toMatch(/Pro feature/);
+  });
+});
+
+describe("convexErrorCode", () => {
+  test("reads the code off application errors only", () => {
+    expect(convexErrorCode(new ConvexError({ code: "DUPLICATE_NAME", message: "x" }))).toBe(
+      "DUPLICATE_NAME",
+    );
+    expect(convexErrorCode(new ConvexError("just text"))).toBeUndefined();
+    expect(convexErrorCode(new ConvexError(null))).toBeUndefined();
+    expect(convexErrorCode(new Error("nope"))).toBeUndefined();
+    expect(convexErrorCode(undefined)).toBeUndefined();
   });
 });

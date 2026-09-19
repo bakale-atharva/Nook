@@ -1,10 +1,9 @@
-"use client";
-
+import { auth } from "@clerk/nextjs/server";
 import { PricingTable } from "@clerk/nextjs";
-import { useParams } from "next/navigation";
 
-export default function UpgradePage() {
-  const params = useParams<{ slug: string }>();
+export default async function UpgradePage({ params }: PageProps<"/org/[slug]/upgrade">) {
+  await auth.protect();
+  const { slug } = await params;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-1 flex-col gap-8 p-6">
@@ -15,7 +14,7 @@ export default function UpgradePage() {
           messages, and your full message history.
         </p>
       </div>
-      <PricingTable for="organization" newSubscriptionRedirectUrl={`/org/${params.slug}`} />
+      <PricingTable for="organization" newSubscriptionRedirectUrl={`/org/${slug}`} />
     </div>
   );
 }

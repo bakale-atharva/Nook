@@ -1,5 +1,4 @@
-"use client";
-
+import { auth } from "@clerk/nextjs/server";
 import { OrganizationProfile } from "@clerk/nextjs";
 
 /**
@@ -7,7 +6,8 @@ import { OrganizationProfile } from "@clerk/nextjs";
  * upgrade) come straight from Clerk — see the "Plans" section that appears
  * automatically once Organization Plans are configured in the Dashboard.
  */
-export default function WorkspaceSettingsPage() {
+export default async function WorkspaceSettingsPage() {
+  await auth.protect();
   return (
     <div className="flex flex-1 items-center justify-center p-6">
       <OrganizationProfile routing="hash" />

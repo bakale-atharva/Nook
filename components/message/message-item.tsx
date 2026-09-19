@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { useChannelPane } from "@/components/channel/channel-context";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { UserAvatar } from "@/components/user-avatar";
 import { useToggleReaction } from "@/hooks/use-toggle-reaction";
@@ -33,20 +34,17 @@ export type { MessageItemData };
  */
 export function MessageItem({
   message,
-  currentUserId,
-  canModerate,
   isGroupStart,
   threadRootId,
   onOpenThread,
 }: {
   message: MessageItemData;
-  currentUserId: Id<"users"> | undefined;
-  canModerate: boolean;
   isGroupStart: boolean;
   /** The open thread's root, so reaction updates reach the thread panel too. */
   threadRootId?: Id<"messages">;
   onOpenThread?: (rootId: Id<"messages">) => void;
 }) {
+  const { currentUserId, canModerate } = useChannelPane();
   const [editing, setEditing] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);

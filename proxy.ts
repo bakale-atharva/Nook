@@ -1,21 +1,16 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 
-const isPublicRoute = createRouteMatcher(["/", "/sign-in(.*)", "/sign-up(.*)"]);
-
-export default clerkMiddleware(
-  async (auth, req) => {
-    if (!isPublicRoute(req)) {
-      await auth.protect();
-    }
+// Route protection is not done here: `createRouteMatcher` path patterns can
+// drift from how Next.js actually routes a request, so each protected layout
+// and page calls `auth.protect()` itself (see app/org/[slug]/layout.tsx).
+// This only keeps Clerk's session available and syncs the active organization.
+export default clerkMiddleware({
+  // Visiting /org/<org-slug>/... makes that Organization the active one, so
+  // the session token (and therefore Convex) is always scoped to the URL.
+  organizationSyncOptions: {
+    organizationPatterns: ["/org/:slug", "/org/:slug/(.*)"],
   },
-  {
-    // Visiting /org/<org-slug>/... makes that Organization the active one, so
-    // the session token (and therefore Convex) is always scoped to the URL.
-    organizationSyncOptions: {
-      organizationPatterns: ["/org/:slug", "/org/:slug/(.*)"],
-    },
-  },
-);
+});
 
 export const config = {
   matcher: [

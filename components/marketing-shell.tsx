@@ -1,3 +1,4 @@
+import { HeroStage } from "@/components/hero-stage";
 import { cn } from "@/lib/utils";
 
 export function MarketingShell({
@@ -8,7 +9,7 @@ export function MarketingShell({
   className?: string;
 }) {
   return (
-    <div className="blueprint-grid scrollbar-hide flex h-dvh flex-col items-center justify-center overflow-y-auto bg-hero p-4 sm:p-8">
+    <HeroStage>
       <div
         className={cn(
           "relative flex w-full max-w-lg flex-col rounded-[calc(var(--radius-lg)+6px)] bg-card p-8 shadow-sheet-lg sm:p-10",
@@ -17,6 +18,6 @@ export function MarketingShell({
       >
         {children}
       </div>
-    </div>
+    </HeroStage>
   );
 }
