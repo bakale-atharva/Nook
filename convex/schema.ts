@@ -44,15 +44,25 @@ export default defineSchema({
     description: v.optional(v.string()),
     isPrivate: v.boolean(),
     createdBy: v.id("users"),
+    // Direct messages are channels with a `dmKey` (sorted member ids joined
+    // by ","), always private with an empty name. Regular channels leave it
+    // undefined, so `eq("dmKey", undefined)` on by_org_dm_key lists exactly
+    // the regular channels.
+    dmKey: v.optional(v.string()),
+    // DMs only: bumped on every new message, used to order the DM list.
+    lastMessageAt: v.optional(v.number()),
   })
     .index("by_org", ["orgId"])
-    .index("by_org_name", ["orgId", "name"]),
+    .index("by_org_name", ["orgId", "name"])
+    .index("by_org_dm_key", ["orgId", "dmKey"]),
 
   channelMembers: defineTable({
     channelId: v.id("channels"),
     orgId: v.string(),
     userId: v.id("users"),
     lastReadAt: v.number(),
+    // Per-user star, so each member decides what's pinned to their sidebar.
+    starred: v.optional(v.boolean()),
   })
     .index("by_channel_user", ["channelId", "userId"])
     .index("by_org_user", ["orgId", "userId"])
@@ -64,7 +74,45 @@ export default defineSchema({
     authorId: v.id("users"),
     body: v.string(),
     editedAt: v.optional(v.number()),
-  }).index("by_channel", ["channelId"]),
+    // Thread replies point at their root message (one level, no nesting).
+    // Root messages leave this undefined, which is what keeps replies out of
+    // the main feed via by_channel_thread.
+    threadRootId: v.optional(v.id("messages")),
+    // Denormalised onto the root so the feed can show "N replies" without
+    // reading the thread.
+    replyCount: v.optional(v.number()),
+    lastReplyAt: v.optional(v.number()),
+    replyParticipants: v.optional(v.array(v.id("users"))), // max 3, most recent
+    // Max 4, image files only (validated in messages.send).
+    attachments: v.optional(
+      v.array(
+        v.object({
+          storageId: v.id("_storage"),
+          name: v.string(),
+          contentType: v.string(),
+          size: v.number(),
+          width: v.optional(v.number()),
+          height: v.optional(v.number()),
+        }),
+      ),
+    ),
+    // Derived server-side from `<@userId>` tokens in `body`; max 20.
+    mentions: v.optional(v.array(v.id("users"))),
+  })
+    .index("by_channel", ["channelId"])
+    .index("by_channel_thread", ["channelId", "threadRootId"])
+    .index("by_thread", ["threadRootId"]),
+
+  // One row per (message, user, emoji). A "heart" is the ❤️ emoji.
+  reactions: defineTable({
+    messageId: v.id("messages"),
+    channelId: v.id("channels"),
+    orgId: v.string(),
+    userId: v.id("users"),
+    emoji: v.string(),
+  })
+    .index("by_message", ["messageId"])
+    .index("by_message_user_emoji", ["messageId", "userId", "emoji"]),
 
   typing: defineTable({
     channelId: v.id("channels"),

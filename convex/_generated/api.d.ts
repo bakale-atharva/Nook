@@ -9,11 +9,18 @@
  */
 
 import type * as channels from "../channels.js";
+import type * as cleanup from "../cleanup.js";
 import type * as clerkSync from "../clerkSync.js";
+import type * as dms from "../dms.js";
+import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_channelAccess from "../lib/channelAccess.js";
+import type * as lib_mentions from "../lib/mentions.js";
+import type * as lib_messageCleanup from "../lib/messageCleanup.js";
 import type * as messages from "../messages.js";
 import type * as organizations from "../organizations.js";
+import type * as reactions from "../reactions.js";
 import type * as typing from "../typing.js";
 import type * as users from "../users.js";
 
@@ -25,11 +32,18 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   channels: typeof channels;
+  cleanup: typeof cleanup;
   clerkSync: typeof clerkSync;
+  dms: typeof dms;
+  files: typeof files;
   http: typeof http;
   "lib/auth": typeof lib_auth;
+  "lib/channelAccess": typeof lib_channelAccess;
+  "lib/mentions": typeof lib_mentions;
+  "lib/messageCleanup": typeof lib_messageCleanup;
   messages: typeof messages;
   organizations: typeof organizations;
+  reactions: typeof reactions;
   typing: typeof typing;
   users: typeof users;
 }>;
