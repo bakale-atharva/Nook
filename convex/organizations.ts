@@ -1,5 +1,6 @@
 import { query } from "./_generated/server";
 import { requireOrgIdentity } from "./lib/auth";
+import { getOrgByClerkId } from "./lib/lookups";
 
 /**
  * The caller's active org as mirrored by the Clerk `organization.*` /
@@ -11,9 +12,6 @@ export const current = query({
   args: {},
   handler: async (ctx) => {
     const org = await requireOrgIdentity(ctx);
-    return await ctx.db
-      .query("organizations")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkOrgId", org.orgId))
-      .unique();
+    return await getOrgByClerkId(ctx, org.orgId);
   },
 });

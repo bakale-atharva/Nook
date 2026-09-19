@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { attachmentValidator } from "./lib/validators";
 
 export default defineSchema({
   // Mirrors Clerk users, kept in sync by convex/clerkSync.ts webhooks (with
@@ -44,8 +45,8 @@ export default defineSchema({
     description: v.optional(v.string()),
     isPrivate: v.boolean(),
     createdBy: v.id("users"),
-    // Direct messages are channels with a `dmKey` (sorted member ids joined
-    // by ","), always private with an empty name. Regular channels leave it
+    // Direct messages are one-to-one channels with a `dmKey` (the two member
+    // ids, sorted and joined by ","), always private with an empty name. Regular channels leave it
     // undefined, so `eq("dmKey", undefined)` on by_org_dm_key lists exactly
     // the regular channels.
     dmKey: v.optional(v.string()),
@@ -84,18 +85,7 @@ export default defineSchema({
     lastReplyAt: v.optional(v.number()),
     replyParticipants: v.optional(v.array(v.id("users"))), // max 3, most recent
     // Max 4, image files only (validated in messages.send).
-    attachments: v.optional(
-      v.array(
-        v.object({
-          storageId: v.id("_storage"),
-          name: v.string(),
-          contentType: v.string(),
-          size: v.number(),
-          width: v.optional(v.number()),
-          height: v.optional(v.number()),
-        }),
-      ),
-    ),
+    attachments: v.optional(v.array(attachmentValidator)),
     // Derived server-side from `<@userId>` tokens in `body`; max 20.
     mentions: v.optional(v.array(v.id("users"))),
   })

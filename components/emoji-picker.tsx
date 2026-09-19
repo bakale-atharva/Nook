@@ -3,12 +3,30 @@
 import { useRef } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { EMOJI_CATEGORIES, QUICK_REACTIONS } from "@/lib/emoji";
-import { cn } from "@/lib/utils";
 
+// Keep in step with the `grid-cols-8` class on the grids below.
 const COLUMNS = 8;
 
-const cellClass =
-  "flex size-8 items-center justify-center rounded-md text-lg leading-none outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50";
+const ARROW_STEPS: Record<string, number> = {
+  ArrowLeft: -1,
+  ArrowRight: 1,
+  ArrowUp: -COLUMNS,
+  ArrowDown: COLUMNS,
+};
+
+function EmojiButton({ emoji, onChoose }: { emoji: string; onChoose: (emoji: string) => void }) {
+  return (
+    <button
+      type="button"
+      data-emoji
+      aria-label={`React with ${emoji}`}
+      className="focus-ring flex size-8 items-center justify-center rounded-md text-lg leading-none hover:bg-muted"
+      onClick={() => onChoose(emoji)}
+    >
+      {emoji}
+    </button>
+  );
+}
 
 /**
  * Curated emoji popover. `trigger` is the element that opens it (usually an
@@ -38,18 +56,12 @@ export function EmojiPicker({
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    const steps: Record<string, number> = {
-      ArrowLeft: -1,
-      ArrowRight: 1,
-      ArrowUp: -COLUMNS,
-      ArrowDown: COLUMNS,
-    };
-    const step = steps[e.key];
+    const step = ARROW_STEPS[e.key];
     if (step === undefined) return;
     const cells = Array.from(
       gridRef.current?.querySelectorAll<HTMLButtonElement>("button[data-emoji]") ?? [],
     );
-    const index = cells.indexOf(document.activeElement as HTMLButtonElement);
+    const index = cells.indexOf(e.target as HTMLButtonElement);
     if (index === -1) return;
     e.preventDefault();
     cells[Math.min(cells.length - 1, Math.max(0, index + step))]?.focus();
@@ -61,16 +73,7 @@ export function EmojiPicker({
       <PopoverContent side={side} align={align} className="w-[19.5rem] gap-2 p-2">
         <div className="flex items-center gap-0.5 border-b pb-2">
           {QUICK_REACTIONS.map((emoji) => (
-            <button
-              key={emoji}
-              type="button"
-              data-emoji
-              aria-label={`React with ${emoji}`}
-              className={cellClass}
-              onClick={() => choose(emoji)}
-            >
-              {emoji}
-            </button>
+            <EmojiButton key={emoji} emoji={emoji} onChoose={choose} />
           ))}
         </div>
         <div
@@ -80,21 +83,12 @@ export function EmojiPicker({
         >
           {EMOJI_CATEGORIES.map((category) => (
             <section key={category.id} aria-label={category.label} className="pb-2">
-              <h3 className="sticky top-0 bg-popover py-1 font-mono text-[0.6875rem] font-normal tracking-[0.06em] text-muted-foreground uppercase">
+              <h3 className="text-label sticky top-0 bg-popover py-1 font-normal">
                 {category.label}
               </h3>
-              <div className={cn("grid gap-0.5")} style={{ gridTemplateColumns: `repeat(${COLUMNS}, minmax(0, 1fr))` }}>
+              <div className="grid grid-cols-8 gap-0.5">
                 {category.emojis.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    data-emoji
-                    aria-label={emoji}
-                    className={cellClass}
-                    onClick={() => choose(emoji)}
-                  >
-                    {emoji}
-                  </button>
+                  <EmojiButton key={emoji} emoji={emoji} onChoose={choose} />
                 ))}
               </div>
             </section>

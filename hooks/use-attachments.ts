@@ -5,13 +5,14 @@ import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { convexErrorMessage } from "@/lib/convex-errors";
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_ATTACHMENTS,
+  MAX_ATTACHMENT_BYTES,
+} from "@/convex/lib/constants";
+import { toastConvexError } from "@/lib/convex-errors";
 
-export const MAX_ATTACHMENTS = 4;
-export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
-
-export const ACCEPT_ATTR = ACCEPTED_TYPES.join(",");
+export const ACCEPT_ATTR = ALLOWED_IMAGE_TYPES.join(",");
 
 export type PendingAttachment = {
   id: string;
@@ -23,18 +24,11 @@ export type PendingAttachment = {
   height?: number;
 };
 
-function readDimensions(file: File): Promise<{ width: number; height: number } | null> {
+function readDimensions(url: string): Promise<{ width: number; height: number } | null> {
   return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve(null);
-    };
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve(null);
     img.src = url;
   });
 }
@@ -49,18 +43,16 @@ export function useAttachments() {
   const [items, setItems] = useState<PendingAttachment[]>([]);
   // Mirrors `items` so addFiles can count synchronously across rapid drops.
   const itemsRef = useRef<PendingAttachment[]>([]);
-  const previewUrls = useRef(new Set<string>());
 
   const commit = useCallback((next: PendingAttachment[]) => {
     itemsRef.current = next;
     setItems(next);
   }, []);
 
+  // Preview URLs are revoked as items go away; this covers what's left on unmount.
   useEffect(() => {
-    const urls = previewUrls.current;
     return () => {
-      urls.forEach((u) => URL.revokeObjectURL(u));
-      urls.clear();
+      itemsRef.current.forEach((i) => URL.revokeObjectURL(i.previewUrl));
     };
   }, []);
 
@@ -72,10 +64,10 @@ export function useAttachments() {
       const accepted: File[] = [];
       let skipped = 0;
       for (const file of files) {
-        if (!ACCEPTED_TYPES.includes(file.type)) {
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
           toast.error(`${file.name} isn't a supported image (PNG, JPEG, GIF or WebP).`);
         } else if (file.size > MAX_ATTACHMENT_BYTES) {
-          toast.error(`${file.name} is larger than 10 MB.`);
+          toast.error(`${file.name} is larger than ${MAX_ATTACHMENT_BYTES / (1024 * 1024)} MB.`);
         } else if (itemsRef.current.length + accepted.length >= MAX_ATTACHMENTS) {
           skipped += 1;
         } else {
@@ -88,12 +80,10 @@ export function useAttachments() {
       if (accepted.length === 0) return;
 
       const pending = accepted.map((file) => {
-        const previewUrl = URL.createObjectURL(file);
-        previewUrls.current.add(previewUrl);
         const item: PendingAttachment = {
           id: crypto.randomUUID(),
           name: file.name || "image",
-          previewUrl,
+          previewUrl: URL.createObjectURL(file),
           status: "uploading",
         };
         return { file, item };
@@ -104,7 +94,7 @@ export function useAttachments() {
         pending.map(async ({ file, item }) => {
           try {
             const [dims, uploadUrl] = await Promise.all([
-              readDimensions(file),
+              readDimensions(item.previewUrl),
               generateUploadUrl(),
             ]);
             const res = await fetch(uploadUrl, {
@@ -130,10 +120,9 @@ export function useAttachments() {
               ),
             );
           } catch (err) {
-            toast.error(convexErrorMessage(err, `Couldn't upload ${item.name}.`));
+            toastConvexError(err, `Couldn't upload ${item.name}.`);
             commit(itemsRef.current.filter((i) => i.id !== item.id));
             URL.revokeObjectURL(item.previewUrl);
-            previewUrls.current.delete(item.previewUrl);
           }
         }),
       );
@@ -145,19 +134,13 @@ export function useAttachments() {
     (id: string) => {
       const target = itemsRef.current.find((i) => i.id === id);
       commit(itemsRef.current.filter((i) => i.id !== id));
-      if (target) {
-        URL.revokeObjectURL(target.previewUrl);
-        previewUrls.current.delete(target.previewUrl);
-      }
+      if (target) URL.revokeObjectURL(target.previewUrl);
     },
     [commit],
   );
 
   const clear = useCallback(() => {
-    itemsRef.current.forEach((i) => {
-      URL.revokeObjectURL(i.previewUrl);
-      previewUrls.current.delete(i.previewUrl);
-    });
+    itemsRef.current.forEach((i) => URL.revokeObjectURL(i.previewUrl));
     commit([]);
   }, [commit]);
 

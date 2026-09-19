@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useRef, useState } from "react";
+import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { useAuth } from "@clerk/nextjs";
@@ -13,7 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Hash, Lock, LogOut, MessageSquare, Star, Trash2, Users } from "lucide-react";
 import { MessageList } from "@/components/message-list";
-import { MessageComposer, type ComposerHandle } from "@/components/message-composer";
+import { MessageComposer } from "@/components/message-composer";
+import { ComposerProvider } from "@/components/composer-provider";
 import { TypingIndicator } from "@/components/typing-indicator";
 import { MemberSidebar } from "@/components/member-sidebar";
 import { ThreadPanel } from "@/components/thread-panel";
@@ -34,7 +35,6 @@ function ChannelView({ slug, channelId }: { slug: string; channelId: Id<"channel
   const { has, isLoaded } = useAuth();
   const [showMembers, setShowMembers] = useState(true);
   const [threadRootId, setThreadRootId] = useState<Id<"messages"> | null>(null);
-  const composer = useRef<ComposerHandle>(null);
 
   const channel = useQuery(api.channels.get, { channelId });
   const members = useQuery(api.channels.listMembers, { channelId });
@@ -79,7 +79,7 @@ function ChannelView({ slug, channelId }: { slug: string; channelId: Id<"channel
       .map((m) => (m.deleted ? "Deleted user" : m.name))
       .join(", ") || "Direct message";
   const title = isDm ? dmTitle : channel.name;
-  const composerPlaceholder = isDm ? `Message ${dmTitle}` : `Message #${channel.name}`;
+  const composerPlaceholder = isDm ? `Message ${dmTitle}…` : `Message #${channel.name}…`;
 
   async function handleJoin() {
     try {
@@ -172,21 +172,19 @@ function ChannelView({ slug, channelId }: { slug: string; channelId: Id<"channel
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col">
           {isMember ? (
-            <DropZone onFiles={(files) => composer.current?.addFiles(files)}>
-              <MessageList
-                channelId={channelId}
-                currentUserId={me?._id}
-                canModerate={canModerate}
-                orgSlug={slug}
-                onOpenThread={setThreadRootId}
-              />
-              <TypingIndicator channelId={channelId} />
-              <MessageComposer
-                ref={composer}
-                channelId={channelId}
-                placeholder={composerPlaceholder}
-              />
-            </DropZone>
+            <ComposerProvider>
+              <DropZone>
+                <MessageList
+                  channelId={channelId}
+                  currentUserId={me?._id}
+                  canModerate={canModerate}
+                  orgSlug={slug}
+                  onOpenThread={setThreadRootId}
+                />
+                <TypingIndicator channelId={channelId} />
+                <MessageComposer channelId={channelId} placeholder={composerPlaceholder} />
+              </DropZone>
+            </ComposerProvider>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
               <p>

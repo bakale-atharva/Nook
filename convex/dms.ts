@@ -1,69 +1,49 @@
-import { v, ConvexError } from "convex/values";
+import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
   hasFeature,
-  requireOrgIdentity,
-  requirePermission,
+  requireCaller,
+  requireOrgWith,
   requireSyncedUser,
 } from "./lib/auth";
-import { DM_FEATURE } from "./lib/channelAccess";
-
-const MAX_DM_PARTICIPANTS = 8;
-const MAX_CANDIDATES = 500;
+import { addChannelMember } from "./lib/channelAccess";
+import { FEATURES, PERMISSIONS } from "./lib/constants";
+import { invalidArgument, notFound, planLimit } from "./lib/errors";
+import { getOrgMembership } from "./lib/lookups";
+import { listOrgUserSummaries, userSummaryValidator } from "./lib/users";
 
 /**
- * Opens (or creates) the direct message with exactly this set of people.
- * The caller is always included. The same set always resolves to the same
- * channel, so "message Sam" twice lands in one conversation.
+ * Opens (or creates) the one-to-one direct message between the caller and
+ * `userId`. The same pair always resolves to the same channel, so "message
+ * Sam" twice lands in one conversation.
  *
  * DMs are a Pro feature (`direct_messages` on the plan).
  */
 export const getOrCreate = mutation({
-  args: { userIds: v.array(v.id("users")) },
+  args: { userId: v.id("users") },
   returns: v.id("channels"),
   handler: async (ctx, args): Promise<Id<"channels">> => {
-    const org = await requireOrgIdentity(ctx);
-    requirePermission(org, "org:messages:send");
-    if (!hasFeature(org, DM_FEATURE)) {
-      throw new ConvexError({ code: "PLAN_LIMIT", limit: "direct_messages" });
+    const org = await requireOrgWith(ctx, PERMISSIONS.MESSAGES_SEND);
+    if (!hasFeature(org, FEATURES.DIRECT_MESSAGES)) {
+      throw planLimit("direct_messages");
     }
     const me = await requireSyncedUser(ctx, org);
 
-    const others = [...new Set(args.userIds)].filter((id) => id !== me._id);
-    if (others.length === 0) {
-      throw new ConvexError({
-        code: "INVALID_ARGUMENT",
-        message: "Pick at least one person to message.",
-      });
-    }
-    if (others.length + 1 > MAX_DM_PARTICIPANTS) {
-      throw new ConvexError({
-        code: "INVALID_ARGUMENT",
-        message: `Direct messages can include up to ${MAX_DM_PARTICIPANTS} people.`,
-      });
+    if (args.userId === me._id) {
+      throw invalidArgument("You can't message yourself.");
     }
 
-    // Everyone must belong to the caller's org and still exist.
-    for (const userId of others) {
-      const [membership, user] = await Promise.all([
-        ctx.db
-          .query("orgMemberships")
-          .withIndex("by_org_user", (q) =>
-            q.eq("orgId", org.orgId).eq("userId", userId),
-          )
-          .unique(),
-        ctx.db.get(userId),
-      ]);
-      if (!membership || !user || user.deletedAt) {
-        throw new ConvexError({
-          code: "NOT_FOUND",
-          message: "That person isn't a member of this organization.",
-        });
-      }
+    // The other person must belong to the caller's org and still exist.
+    const [membership, other] = await Promise.all([
+      getOrgMembership(ctx, org.orgId, args.userId),
+      ctx.db.get(args.userId),
+    ]);
+    if (!membership || !other || other.deletedAt) {
+      throw notFound("That person isn't a member of this organization.");
     }
 
-    const memberIds = [me._id, ...others].sort();
+    const memberIds = [me._id, args.userId].sort();
     const dmKey = memberIds.join(",");
     const existing = await ctx.db
       .query("channels")
@@ -83,7 +63,7 @@ export const getOrCreate = mutation({
       lastMessageAt: now,
     });
     for (const userId of memberIds) {
-      await ctx.db.insert("channelMembers", {
+      await addChannelMember(ctx, {
         channelId,
         orgId: org.orgId,
         userId,
@@ -97,30 +77,9 @@ export const getOrCreate = mutation({
 /** Org members the caller can start a DM with (everyone except themselves). */
 export const listCandidates = query({
   args: {},
-  returns: v.array(
-    v.object({
-      userId: v.id("users"),
-      name: v.string(),
-      imageUrl: v.optional(v.string()),
-    }),
-  ),
+  returns: v.array(userSummaryValidator),
   handler: async (ctx) => {
-    const org = await requireOrgIdentity(ctx);
-    requirePermission(org, "org:channels:read");
-    const me = await requireSyncedUser(ctx, org);
-    const memberships = await ctx.db
-      .query("orgMemberships")
-      .withIndex("by_org", (q) => q.eq("orgId", org.orgId))
-      .take(MAX_CANDIDATES);
-    const users = await Promise.all(
-      memberships
-        .filter((m) => m.userId !== me._id)
-        .map((m) => ctx.db.get(m.userId)),
-    );
-    return users.flatMap((u) =>
-      u && !u.deletedAt
-        ? [{ userId: u._id, name: u.name, imageUrl: u.imageUrl }]
-        : [],
-    );
+    const { org, user } = await requireCaller(ctx, PERMISSIONS.CHANNELS_READ);
+    return await listOrgUserSummaries(ctx, org.orgId, { excludeUserId: user._id });
   },
 });

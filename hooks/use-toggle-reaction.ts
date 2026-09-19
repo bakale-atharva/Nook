@@ -1,10 +1,9 @@
 "use client";
 
 import { useMutation, optimisticallyUpdateValueInPaginatedQuery } from "convex/react";
-import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { convexErrorMessage } from "@/lib/convex-errors";
+import { toastConvexError } from "@/lib/convex-errors";
 
 type Reactions = { emoji: string; count: number; reactedByMe: boolean }[];
 
@@ -21,6 +20,16 @@ function toggled(reactions: Reactions, emoji: string): Reactions {
   );
 }
 
+/** `message` with `emoji` toggled, if it's the message being reacted to. */
+function withToggle<T extends { _id: Id<"messages">; reactions: Reactions }>(
+  message: T,
+  target: { messageId: Id<"messages">; emoji: string },
+): T {
+  return message._id === target.messageId
+    ? { ...message, reactions: toggled(message.reactions, target.emoji) }
+    : message;
+}
+
 /**
  * Toggles the caller's reaction on a message. The chip updates instantly in
  * both the channel feed and the open thread; the server result then replaces
@@ -33,20 +42,18 @@ export function useToggleReaction(channelId: Id<"channels">, threadRootId?: Id<"
         localStore,
         api.messages.list,
         { channelId },
-        (m) =>
-          m._id === args.messageId
-            ? { ...m, reactions: toggled(m.reactions, args.emoji) }
-            : m,
+        (m) => withToggle(m, args),
       );
       if (threadRootId) {
         const thread = localStore.getQuery(api.messages.listThread, { rootId: threadRootId });
         if (thread) {
-          const apply = <T extends { _id: Id<"messages">; reactions: Reactions }>(m: T): T =>
-            m._id === args.messageId ? { ...m, reactions: toggled(m.reactions, args.emoji) } : m;
           localStore.setQuery(
             api.messages.listThread,
             { rootId: threadRootId },
-            { root: apply(thread.root), replies: thread.replies.map(apply) },
+            {
+              root: withToggle(thread.root, args),
+              replies: thread.replies.map((m) => withToggle(m, args)),
+            },
           );
         }
       }
@@ -57,7 +64,7 @@ export function useToggleReaction(channelId: Id<"channels">, threadRootId?: Id<"
     try {
       await toggle({ messageId, emoji });
     } catch (err) {
-      toast.error(convexErrorMessage(err, "Couldn't update that reaction."));
+      toastConvexError(err, "Couldn't update that reaction.");
     }
   };
 }
