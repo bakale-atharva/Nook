@@ -236,6 +236,16 @@
   @apply font-mono;
 }
 
+/* The small mono uppercase label used for dates, tags and status lines. */
+@utility text-label {
+  @apply font-mono text-[0.6875rem] tracking-[0.06em] text-muted-foreground uppercase;
+}
+
+/* Custom focus ring for controls that draw their own outline. */
+@utility focus-ring {
+  @apply outline-none focus-visible:ring-3 focus-visible:ring-ring/50;
+}
+
 /* The one authored signature moment: sheets settle into their fanned
    positions, like a drawing set laid out on the table. */
 @keyframes fan-in {

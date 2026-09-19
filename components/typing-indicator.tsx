@@ -5,6 +5,13 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
+const names = new Intl.ListFormat([], { style: "long", type: "conjunction" });
+
+function typingText(typers: string[]) {
+  if (typers.length > 2) return `${typers.length} people are typing…`;
+  return `${names.format(typers)} ${typers.length === 1 ? "is" : "are"} typing…`;
+}
+
 export function TypingIndicator({ channelId }: { channelId: Id<"channels"> }) {
   const [now, setNow] = useState(() => Date.now());
 
@@ -15,22 +22,16 @@ export function TypingIndicator({ channelId }: { channelId: Id<"channels"> }) {
 
   const typers = useQuery(api.typing.list, { channelId, now });
 
-  if (!typers || typers.length === 0) {
-    return <div className="h-5 px-4" />;
-  }
-
-  const names = typers.map((t) => t.name);
-  const text =
-    names.length === 1
-      ? `${names[0]} is typing…`
-      : names.length === 2
-        ? `${names[0]} and ${names[1]} are typing…`
-        : `${names.length} people are typing…`;
-
+  // One persistent live region: its content changes, the region itself never
+  // unmounts, so screen readers announce who starts typing.
   return (
-    <div className="flex h-5 items-center gap-1.5 px-4 font-mono text-[0.6875rem] tracking-[0.04em] text-muted-foreground uppercase">
-      <span className="size-1.5 animate-pulse rounded-full bg-live" />
-      {text}
+    <div aria-live="polite" className="text-label flex h-5 items-center gap-1.5 px-4">
+      {typers && typers.length > 0 && (
+        <>
+          <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-live" />
+          {typingText(typers.map((t) => t.name))}
+        </>
+      )}
     </div>
   );
 }

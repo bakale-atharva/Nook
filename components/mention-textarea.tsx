@@ -1,80 +1,54 @@
 "use client";
 
-import { useId, useImperativeHandle, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
+import { MentionSuggestions } from "@/components/mention-suggestions";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn, initials } from "@/lib/utils";
-
-export type MentionMember = { userId: string; name: string; imageUrl?: string };
-
-const MAX_SUGGESTIONS = 6;
-const MAX_QUERY_LENGTH = 30;
-
-/** The `@query` being typed at the caret, if any. */
-function findTrigger(text: string, caret: number): { start: number; query: string } | null {
-  const before = text.slice(0, caret);
-  const at = before.lastIndexOf("@");
-  if (at === -1) return null;
-  if (at > 0 && !/\s/.test(before[at - 1])) return null;
-  const query = before.slice(at + 1);
-  if (query.includes("\n") || query.length > MAX_QUERY_LENGTH) return null;
-  return { start: at, query };
-}
+import { findMentionTrigger, suggestMembers, type MentionMember } from "@/lib/mentions";
 
 /**
  * A textarea that suggests teammates while you type `@name`. Picking one
  * inserts `@Name ` and reports the name -> user id pair through
  * `onMentionPicked`; the owner turns those into `<@id>` tokens on send (see
- * lib/mentions.ts). Keys the suggestion list doesn't need (Enter to send,
- * for one) fall through to `onKeyDown`.
+ * lib/mentions.ts). While the suggestion list is closed, Enter calls
+ * `onEnter` (sending or saving) and Escape calls `onEscape`; Shift+Enter
+ * still inserts a newline.
  */
 export function MentionTextarea({
   value,
   onValueChange,
   members,
   onMentionPicked,
+  onEnter,
+  onEscape,
   onKeyDown,
-  onPaste,
-  ref,
   ...rest
 }: {
   value: string;
   onValueChange: (value: string) => void;
   members: MentionMember[];
   onMentionPicked: (name: string, userId: string) => void;
+  onEnter?: () => void;
+  onEscape?: () => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-  onPaste?: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
-  ref?: React.Ref<HTMLTextAreaElement>;
-} & Omit<
-  React.ComponentProps<"textarea">,
-  "value" | "onChange" | "onKeyDown" | "onPaste" | "ref"
->) {
+} & Omit<React.ComponentProps<"textarea">, "value" | "onChange" | "onKeyDown" | "ref">) {
   const inner = useRef<HTMLTextAreaElement>(null);
-  useImperativeHandle(ref, () => inner.current as HTMLTextAreaElement);
   const listId = useId();
 
   const [trigger, setTrigger] = useState<{ start: number; query: string } | null>(null);
   const [active, setActive] = useState(0);
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
 
-  const query = trigger?.query.toLowerCase() ?? "";
-  const suggestions = trigger
-    ? members
-        .filter((m) => m.name.toLowerCase().includes(query))
-        .sort((a, b) => {
-          const aStarts = a.name.toLowerCase().startsWith(query) ? 0 : 1;
-          const bStarts = b.name.toLowerCase().startsWith(query) ? 0 : 1;
-          return aStarts - bStarts || a.name.localeCompare(b.name);
-        })
-        .slice(0, MAX_SUGGESTIONS)
-    : [];
+  const suggestions = trigger ? suggestMembers(members, trigger.query) : [];
   const open = !!trigger && trigger.start !== dismissedAt && suggestions.length > 0;
   const activeIndex = Math.min(active, Math.max(0, suggestions.length - 1));
 
   function syncTrigger(el: HTMLTextAreaElement) {
-    const next = findTrigger(el.value, el.selectionStart ?? el.value.length);
+    const next = findMentionTrigger(el.value, el.selectionStart ?? el.value.length);
     setTrigger(next);
     if (next?.start !== trigger?.start || next?.query !== trigger?.query) setActive(0);
+    // A dismissal only covers the mention it was pressed on; once the caret
+    // leaves it (or the "@" is deleted) the next "@" may suggest again.
+    if (dismissedAt !== null && next?.start !== dismissedAt) setDismissedAt(null);
   }
 
   function pick(member: MentionMember) {
@@ -93,6 +67,8 @@ export function MentionTextarea({
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // Enter while an IME is composing confirms the composition; it isn't ours.
+    const composing = e.nativeEvent.isComposing;
     if (open) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
@@ -100,7 +76,7 @@ export function MentionTextarea({
         setActive((activeIndex + delta + suggestions.length) % suggestions.length);
         return;
       }
-      if (e.key === "Enter" || e.key === "Tab") {
+      if ((e.key === "Enter" || e.key === "Tab") && !composing) {
         e.preventDefault();
         pick(suggestions[activeIndex]);
         return;
@@ -111,6 +87,12 @@ export function MentionTextarea({
         return;
       }
     }
+    if (e.key === "Enter" && !e.shiftKey && !composing && onEnter) {
+      e.preventDefault();
+      onEnter();
+      return;
+    }
+    if (e.key === "Escape") onEscape?.();
     onKeyDown?.(e);
   }
 
@@ -126,51 +108,20 @@ export function MentionTextarea({
         }}
         onSelect={(e) => syncTrigger(e.currentTarget)}
         onKeyDown={handleKeyDown}
-        onPaste={onPaste}
         role="combobox"
         aria-expanded={open}
+        aria-haspopup="listbox"
         aria-controls={open ? listId : undefined}
         aria-activedescendant={open ? `${listId}-${activeIndex}` : undefined}
         aria-autocomplete="list"
       />
       {open && (
-        <ul
+        <MentionSuggestions
           id={listId}
-          role="listbox"
-          aria-label="Mention a teammate"
-          className="absolute bottom-full left-0 z-30 mb-1 w-64 overflow-hidden rounded-lg bg-popover p-1 text-sm text-popover-foreground shadow-lg ring-1 ring-foreground/10"
-        >
-          {suggestions.map((member, i) => (
-            <li
-              key={member.userId}
-              id={`${listId}-${i}`}
-              role="option"
-              aria-selected={i === activeIndex}
-            >
-              <button
-                type="button"
-                tabIndex={-1}
-                // mousedown, not click: keeps focus (and the caret) in the textarea.
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  pick(member);
-                }}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left",
-                  i === activeIndex && "bg-muted",
-                )}
-              >
-                <Avatar className="size-5">
-                  <AvatarImage src={member.imageUrl} alt="" />
-                  <AvatarFallback className="text-[0.625rem]">
-                    {initials(member.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="truncate">{member.name}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+          members={suggestions}
+          activeIndex={activeIndex}
+          onPick={pick}
+        />
       )}
     </div>
   );

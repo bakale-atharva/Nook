@@ -32,6 +32,38 @@ export function decodeMentions(
   });
 }
 
+export type MentionMember = { userId: string; name: string; imageUrl?: string };
+
+const MAX_SUGGESTIONS = 6;
+const MAX_QUERY_LENGTH = 30;
+
+/** The `@query` being typed at the caret, if any. */
+export function findMentionTrigger(
+  text: string,
+  caret: number,
+): { start: number; query: string } | null {
+  const before = text.slice(0, caret);
+  const at = before.lastIndexOf("@");
+  if (at === -1) return null;
+  if (at > 0 && !/\s/.test(before[at - 1])) return null;
+  const query = before.slice(at + 1);
+  if (query.includes("\n") || query.length > MAX_QUERY_LENGTH) return null;
+  return { start: at, query };
+}
+
+/** Members matching `query`, names that start with it first, then alphabetical. */
+export function suggestMembers(members: MentionMember[], query: string): MentionMember[] {
+  const q = query.toLowerCase();
+  return members
+    .filter((m) => m.name.toLowerCase().includes(q))
+    .sort((a, b) => {
+      const aStarts = a.name.toLowerCase().startsWith(q) ? 0 : 1;
+      const bStarts = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+      return aStarts - bStarts || a.name.localeCompare(b.name);
+    })
+    .slice(0, MAX_SUGGESTIONS);
+}
+
 export type BodySegment =
   | { type: "text"; text: string }
   | { type: "mention"; id: string };
