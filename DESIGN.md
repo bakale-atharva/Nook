@@ -144,7 +144,16 @@ A small, precise radius scale (`--radius: 0.5rem` base) — architectural, not b
 - **Focus:** a 3px ring in blueprint blue at 50% opacity, matching the button focus treatment.
 
 ### Navigation
-- **Sidebar (Operate):** blueprint-blue frame (darker than the primary token), vellum text, rust for the active/unread state — the frame holding the vellum content sheets, per the world's own composition.
+- **Sidebar (Operate):** blueprint-blue frame (darker than the primary token), vellum text, rust for the active/unread state — the frame holding the vellum content sheets, per the world's own composition. Sections run Starred, Channels, Direct messages; a star appears on row hover. An unread @mention swaps the plain rust count for a filled rust `@N` pill, because "something needs you" is exactly the state rust is reserved for.
+
+### Message Furniture
+- **Reaction chip:** a small pill (a genuinely small control) with a hairline border and no shadow. Idle chips are paper on ruled border; a chip you have reacted with takes a blueprint-blue tint (`primary/10` fill, `primary/40` border, blue text). Rust is never used for reactions. Counts are Martian Mono tabular figures because they are data.
+- **Heart:** a one-click ❤️ reaction. When set, the icon fills in blueprint blue rather than red.
+- **@mention chip:** an inline blueprint-blue tint on the name; a mention of the current user is one step stronger.
+- **Attachment tile:** an image inside a hairline border with a trimmed radius and no shadow. Clicking opens it in a dialog.
+- **Drop overlay:** dropping images shows the `.blueprint-grid` ground inside a dashed blueprint-blue border, with a mono label. It is the ground's own texture responding to the gesture, not new decoration.
+- **Message action bar:** a hairline-bordered strip pinned to a row's top edge on hover or focus. Popovers (emoji picker, mention list) match the dropdown menu surface.
+- **Thread panel:** a right-hand column with the same hairline divider as the member list, replacing it while open, and a sheet on small screens.
 
 ### Signature Component: The Fanned Sheet
 The landing hero's chat preview renders three channel sheets fanned like a drawing set, one lit with the rust live mark. On load, each sheet settles into its fanned position with one authored entrance (`fan-in`, `cubic-bezier(0.16, 1, 0.3, 1)`, staggered ~90ms per sheet, disabled under `prefers-reduced-motion`) — the system's one deliberate motion moment, never repeated as a generic entrance on every section.

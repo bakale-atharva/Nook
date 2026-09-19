@@ -22,8 +22,10 @@ Full design doc (with diagrams and the phase-by-phase build plan):
 | Channels | 5 | Unlimited |
 | Visible history / channel | Last 30 | Full, paginated |
 | Private channels | ✗ | ✓ |
+| Direct messages (1:1 and group) | ✗ | ✓ |
 | Create/delete channels | Admins | Admins |
 | Join channels, send/edit/delete own messages, typing, unread | All members | All members |
+| Threaded replies, emoji reactions and hearts, image upload (drag and drop), @mentions, starred channels | All members | All members |
 
 Admins get the full `org:admin` permission set (manage channels, moderate
 any message, manage members/billing). Members can browse/join public
@@ -69,7 +71,7 @@ CLERK_WEBHOOK_SIGNING_SECRET    # whsec_... from Clerk → Webhooks → your end
 CLERK_SECRET_KEY                # only needed to run clerkSync.backfill
 ```
 
-## Clerk Dashboard setup (manual — no Clerk CLI used in this project)
+## Clerk Dashboard setup (manual, or `clerk config patch` for the billing bits)
 
 Clerk builds every permission check out of **Plan → Feature → Permission →
 Role**: a custom permission `org:<feature>:<action>` only returns `true`
@@ -82,7 +84,12 @@ Feature keyed exactly `<feature>`.
    new members `org:member`.
 2. **Billing** (Billing → Settings): enable Organization billing.
 3. **Features** (Billing → Features) — create with these exact keys:
-   `channels`, `messages`, `private_channels`, `unlimited_channels`, `full_history`.
+   `channels`, `messages`, `private_channels`, `unlimited_channels`,
+   `full_history`, `direct_messages`.
+   (`direct_messages` was added later and only needs to be on the `pro`
+   plan. Via the Clerk CLI: add it under `billing.features` and append it to
+   `billing.plans.pro.features` with `clerk config patch --file <patch>.json`,
+   previewing first with `--dry-run`.)
 4. **Custom permissions** (Organizations → Roles & Permissions →
    Permissions), each tied to its matching Feature:
    `org:channels:read` and `org:channels:manage` (`channels`),
@@ -96,7 +103,7 @@ Feature keyed exactly `<feature>`.
    - `free_org` (default, edit the auto-created one): $0, seat limit **5**,
      features `channels` + `messages`.
    - `pro` (new): seat limit **20** (can't be changed after creation —
-     double check), features: all five.
+     double check), features: all six.
 7. **Convex integration** (Integrations → Convex): activate it.
 8. **Webhook endpoint** (Configure → Webhooks → Add Endpoint) — do this
    *after* `npx convex dev` has deployed the `http.ts` route:

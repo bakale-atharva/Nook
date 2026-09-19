@@ -1,0 +1,52 @@
+// Client side of @mentions. On the wire a mention is a `<@userId>` token
+// (validated by convex/lib/mentions.ts); in the composer it's plain `@Name`.
+
+const TOKEN = /<@([a-z0-9]{16,64})>/g;
+
+function escapeRegExp(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** `@Name` -> `<@userId>` for every name in `nameToId`, longest name first. */
+export function encodeMentions(text: string, nameToId: Map<string, string>): string {
+  const names = [...nameToId.keys()].sort((a, b) => b.length - a.length);
+  if (names.length === 0) return text;
+  const pattern = new RegExp(
+    `(?<![\\p{L}\\p{N}_])@(${names.map(escapeRegExp).join("|")})(?![\\p{L}\\p{N}_])`,
+    "gu",
+  );
+  return text.replace(pattern, (whole, name: string) => {
+    const id = nameToId.get(name);
+    return id ? `<@${id}>` : whole;
+  });
+}
+
+/** `<@userId>` -> `@Name` so a stored body can be edited as readable text. */
+export function decodeMentions(
+  body: string,
+  users: { id: string; name: string }[],
+): string {
+  const byId = new Map(users.map((u) => [u.id, u.name]));
+  return body.replace(TOKEN, (whole, id: string) => {
+    const name = byId.get(id);
+    return name ? `@${name}` : whole;
+  });
+}
+
+export type BodySegment =
+  | { type: "text"; text: string }
+  | { type: "mention"; id: string };
+
+/** Splits a stored body into plain text and mention tokens for rendering. */
+export function splitBody(body: string): BodySegment[] {
+  const segments: BodySegment[] = [];
+  let last = 0;
+  for (const match of body.matchAll(TOKEN)) {
+    const start = match.index ?? 0;
+    if (start > last) segments.push({ type: "text", text: body.slice(last, start) });
+    segments.push({ type: "mention", id: match[1] });
+    last = start + match[0].length;
+  }
+  if (last < body.length) segments.push({ type: "text", text: body.slice(last) });
+  return segments;
+}

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireOrgIdentity, requireSyncedUser, assertSameOrg } from "./lib/auth";
+import { requireOrgIdentity, requireSyncedUser } from "./lib/auth";
+import { assertCanViewChannel } from "./lib/channelAccess";
 
 const TYPING_TTL_MS = 6000;
 
@@ -16,9 +17,7 @@ export const heartbeat = mutation({
   handler: async (ctx, args) => {
     const org = await requireOrgIdentity(ctx);
     const user = await requireSyncedUser(ctx, org);
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel) return null;
-    assertSameOrg(org, channel.orgId);
+    await assertCanViewChannel(ctx, org, args.channelId);
 
     const existing = await ctx.db
       .query("typing")
@@ -77,6 +76,7 @@ export const list = query({
   handler: async (ctx, args) => {
     const org = await requireOrgIdentity(ctx);
     const user = await requireSyncedUser(ctx, org);
+    await assertCanViewChannel(ctx, org, args.channelId);
     const rows = await ctx.db
       .query("typing")
       .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))

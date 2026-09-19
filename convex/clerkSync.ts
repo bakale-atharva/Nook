@@ -16,6 +16,9 @@ type SubscriptionEventData = {
 import { internalMutation, internalAction } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { deleteMessageCascade } from "./lib/messageCleanup";
+
+const MESSAGE_CASCADE_BATCH = 50;
 
 /**
  * Handlers for Clerk webhook events (see convex/http.ts for the endpoint
@@ -199,11 +202,13 @@ export const cascadeDeleteChannel = internalMutation({
   args: { channelId: v.id("channels") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // Messages go in smaller batches than the other tables: each one can
+    // carry reactions and uploaded files that are deleted with it.
     const [messages, members, typingRows] = await Promise.all([
       ctx.db
         .query("messages")
         .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
-        .take(100),
+        .take(MESSAGE_CASCADE_BATCH),
       ctx.db
         .query("channelMembers")
         .withIndex("by_channel_user", (q) => q.eq("channelId", args.channelId))
@@ -213,11 +218,16 @@ export const cascadeDeleteChannel = internalMutation({
         .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
         .take(100),
     ]);
-    for (const row of [...messages, ...members, ...typingRows]) {
+    for (const message of messages) {
+      // Thread replies are messages of this channel too, so they are picked
+      // up by later batches; no separate reply purge is needed.
+      await deleteMessageCascade(ctx, message, { skipReplyPurge: true });
+    }
+    for (const row of [...members, ...typingRows]) {
       await ctx.db.delete(row._id);
     }
     if (
-      messages.length === 100 ||
+      messages.length === MESSAGE_CASCADE_BATCH ||
       members.length === 100 ||
       typingRows.length === 100
     ) {

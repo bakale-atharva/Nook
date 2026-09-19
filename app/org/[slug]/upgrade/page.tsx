@@ -11,8 +11,8 @@ export default function UpgradePage() {
       <div className="space-y-2 text-center">
         <h1 className="text-2xl font-semibold">Upgrade your organization</h1>
         <p className="text-muted-foreground">
-          Unlock more members, unlimited channels, private channels, and
-          your full message history.
+          Unlock more members, unlimited channels, private channels, direct
+          messages, and your full message history.
         </p>
       </div>
       <PricingTable for="organization" newSubscriptionRedirectUrl={`/org/${params.slug}`} />
