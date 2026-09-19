@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import { FREE_CHANNEL_LIMIT } from "@/convex/lib/constants";
 
 type ConvexErrorData = {
   code?: string;
@@ -14,7 +15,7 @@ export function convexErrorMessage(err: unknown, fallback = "Something went wron
   switch (data.code) {
     case "PLAN_LIMIT":
       if (data.limit === "channels") {
-        return `Free orgs are limited to ${data.max ?? 5} channels. Upgrade to Pro for unlimited channels.`;
+        return `Free orgs are limited to ${data.max ?? FREE_CHANNEL_LIMIT} channels. Upgrade to Pro for unlimited channels.`;
       }
       if (data.limit === "direct_messages") {
         return "Direct messages are a Pro feature. Upgrade to message teammates directly.";

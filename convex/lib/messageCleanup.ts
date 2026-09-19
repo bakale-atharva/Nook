@@ -1,8 +1,26 @@
 import type { MutationCtx } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
+import { REACTION_DELETE_BATCH } from "./constants";
 
-export const REACTION_DELETE_BATCH = 200;
+/**
+ * Deletes one bounded batch of a message's reactions. Returns true when the
+ * batch was full, i.e. more reactions may remain and the caller should
+ * schedule another pass (see convex/cleanup.ts).
+ */
+export async function deleteReactionsBatch(
+  ctx: MutationCtx,
+  messageId: Id<"messages">,
+): Promise<boolean> {
+  const reactions = await ctx.db
+    .query("reactions")
+    .withIndex("by_message", (q) => q.eq("messageId", messageId))
+    .take(REACTION_DELETE_BATCH);
+  for (const reaction of reactions) {
+    await ctx.db.delete(reaction._id);
+  }
+  return reactions.length === REACTION_DELETE_BATCH;
+}
 
 /**
  * Deletes a message together with everything that hangs off it: its
@@ -20,14 +38,7 @@ export async function deleteMessageCascade(
   message: Doc<"messages">,
   opts: { skipReplyPurge?: boolean } = {},
 ): Promise<void> {
-  const reactions = await ctx.db
-    .query("reactions")
-    .withIndex("by_message", (q) => q.eq("messageId", message._id))
-    .take(REACTION_DELETE_BATCH);
-  for (const reaction of reactions) {
-    await ctx.db.delete(reaction._id);
-  }
-  if (reactions.length === REACTION_DELETE_BATCH) {
+  if (await deleteReactionsBatch(ctx, message._id)) {
     await ctx.scheduler.runAfter(0, internal.cleanup.purgeReactions, {
       messageId: message._id,
     });

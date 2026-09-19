@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireOrgIdentity, requirePermission, getSyncedUser } from "./lib/auth";
+import { getSyncedUser, requireOrgIdentity, requireOrgWith } from "./lib/auth";
+import { PERMISSIONS } from "./lib/constants";
+import { listOrgUserSummaries, userSummaryValidator } from "./lib/users";
 
 /**
  * Upserts the caller's `users` row from their session token. Called once on
@@ -61,33 +63,15 @@ export const me = query({
   },
 });
 
-const MAX_ORG_MEMBERS_LISTED = 500;
-
 /**
  * Everyone in the caller's org (not just one channel), for the @mention
  * picker. Deleted users are left out. The client filters as you type.
  */
 export const listOrgMembers = query({
   args: {},
-  returns: v.array(
-    v.object({
-      userId: v.id("users"),
-      name: v.string(),
-      imageUrl: v.optional(v.string()),
-    }),
-  ),
+  returns: v.array(userSummaryValidator),
   handler: async (ctx) => {
-    const org = await requireOrgIdentity(ctx);
-    requirePermission(org, "org:channels:read");
-    const memberships = await ctx.db
-      .query("orgMemberships")
-      .withIndex("by_org", (q) => q.eq("orgId", org.orgId))
-      .take(MAX_ORG_MEMBERS_LISTED);
-    const users = await Promise.all(memberships.map((m) => ctx.db.get(m.userId)));
-    return users.flatMap((u) =>
-      u && !u.deletedAt
-        ? [{ userId: u._id, name: u.name, imageUrl: u.imageUrl }]
-        : [],
-    );
+    const org = await requireOrgWith(ctx, PERMISSIONS.CHANNELS_READ);
+    return await listOrgUserSummaries(ctx, org.orgId);
   },
 });

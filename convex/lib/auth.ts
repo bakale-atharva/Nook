@@ -1,7 +1,15 @@
-import { ConvexError } from "convex/values";
 import type { Auth, UserIdentity } from "convex/server";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
+import type { Feature, Permission } from "./constants";
+import {
+  missingPermission,
+  noActiveOrg,
+  notFound,
+  unauthenticated,
+  userNotSynced,
+} from "./errors";
+import { getUserByClerkId } from "./lookups";
 
 /**
  * Decoded shape of Clerk's v2 session-token organization claim (`o`).
@@ -118,11 +126,11 @@ export async function requireOrgIdentity(ctx: {
 }): Promise<OrgIdentity> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
-    throw new ConvexError({ code: "UNAUTHENTICATED" });
+    throw unauthenticated();
   }
   const org = readOrgClaim(identity);
   if (!org) {
-    throw new ConvexError({ code: "NO_ACTIVE_ORG" });
+    throw noActiveOrg();
   }
   const features = readFeatures(identity);
   return {
@@ -136,21 +144,21 @@ export async function requireOrgIdentity(ctx: {
 }
 
 /** Throws FORBIDDEN unless the caller holds `permission` (e.g. "org:channels:manage"). */
-export function requirePermission(org: OrgIdentity, permission: string): void {
+export function requirePermission(org: OrgIdentity, permission: Permission): void {
   if (!org.permissions.has(permission)) {
-    throw new ConvexError({ code: "FORBIDDEN", permission });
+    throw missingPermission(permission);
   }
 }
 
 /** Whether the org's active plan includes `feature` (e.g. "unlimited_channels"). */
-export function hasFeature(org: OrgIdentity, feature: string): boolean {
+export function hasFeature(org: OrgIdentity, feature: Feature): boolean {
   return org.features.has(feature);
 }
 
 /** Throws NOT_FOUND if `resourceOrgId` doesn't match the caller's active org. */
 export function assertSameOrg(org: OrgIdentity, resourceOrgId: string): void {
   if (org.orgId !== resourceOrgId) {
-    throw new ConvexError({ code: "NOT_FOUND" });
+    throw notFound();
   }
 }
 
@@ -162,10 +170,7 @@ export async function getSyncedUser(
   ctx: QueryCtx | MutationCtx,
   org: OrgIdentity,
 ): Promise<Doc<"users"> | null> {
-  return await ctx.db
-    .query("users")
-    .withIndex("by_clerk_id", (q) => q.eq("clerkUserId", org.identity.subject))
-    .unique();
+  return await getUserByClerkId(ctx, org.identity.subject);
 }
 
 /** Like getSyncedUser, but throws if the webhook/store sync hasn't happened yet. */
@@ -175,7 +180,32 @@ export async function requireSyncedUser(
 ): Promise<Doc<"users">> {
   const user = await getSyncedUser(ctx, org);
   if (!user) {
-    throw new ConvexError({ code: "USER_NOT_SYNCED" });
+    throw userNotSynced();
   }
   return user;
+}
+
+/**
+ * The common handler preamble: an active org, then (optionally) a Clerk
+ * permission, then the caller's synced `users` row - checked in that order,
+ * which decides which error wins when several apply.
+ */
+export async function requireCaller(
+  ctx: QueryCtx | MutationCtx,
+  permission?: Permission,
+): Promise<{ org: OrgIdentity; user: Doc<"users"> }> {
+  const org = await requireOrgIdentity(ctx);
+  if (permission) requirePermission(org, permission);
+  const user = await requireSyncedUser(ctx, org);
+  return { org, user };
+}
+
+/** requireCaller without the user lookup, for handlers that don't need one. */
+export async function requireOrgWith(
+  ctx: { auth: Auth },
+  permission: Permission,
+): Promise<OrgIdentity> {
+  const org = await requireOrgIdentity(ctx);
+  requirePermission(org, permission);
+  return org;
 }

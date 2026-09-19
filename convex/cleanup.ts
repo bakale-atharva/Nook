@@ -1,23 +1,15 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { REACTION_DELETE_BATCH, deleteMessageCascade } from "./lib/messageCleanup";
-
-const REPLY_DELETE_BATCH = 25;
+import { REPLY_DELETE_BATCH } from "./lib/constants";
+import { deleteMessageCascade, deleteReactionsBatch } from "./lib/messageCleanup";
 
 /** Deletes the reactions left over when a message had more than one batch. */
 export const purgeReactions = internalMutation({
   args: { messageId: v.id("messages") },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const reactions = await ctx.db
-      .query("reactions")
-      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
-      .take(REACTION_DELETE_BATCH);
-    for (const reaction of reactions) {
-      await ctx.db.delete(reaction._id);
-    }
-    if (reactions.length === REACTION_DELETE_BATCH) {
+    if (await deleteReactionsBatch(ctx, args.messageId)) {
       await ctx.scheduler.runAfter(0, internal.cleanup.purgeReactions, args);
     }
     return null;

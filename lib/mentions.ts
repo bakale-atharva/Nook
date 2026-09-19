@@ -1,7 +1,6 @@
 // Client side of @mentions. On the wire a mention is a `<@userId>` token
 // (validated by convex/lib/mentions.ts); in the composer it's plain `@Name`.
-
-const TOKEN = /<@([a-z0-9]{16,64})>/g;
+import { MENTION_TOKEN } from "@/convex/lib/mentionToken";
 
 function escapeRegExp(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -27,7 +26,7 @@ export function decodeMentions(
   users: { id: string; name: string }[],
 ): string {
   const byId = new Map(users.map((u) => [u.id, u.name]));
-  return body.replace(TOKEN, (whole, id: string) => {
+  return body.replace(MENTION_TOKEN, (whole, id: string) => {
     const name = byId.get(id);
     return name ? `@${name}` : whole;
   });
@@ -41,7 +40,7 @@ export type BodySegment =
 export function splitBody(body: string): BodySegment[] {
   const segments: BodySegment[] = [];
   let last = 0;
-  for (const match of body.matchAll(TOKEN)) {
+  for (const match of body.matchAll(MENTION_TOKEN)) {
     const start = match.index ?? 0;
     if (start > last) segments.push({ type: "text", text: body.slice(last, start) });
     segments.push({ type: "mention", id: match[1] });

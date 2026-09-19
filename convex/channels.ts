@@ -1,152 +1,44 @@
-import { v, ConvexError } from "convex/values";
+import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import {
-  requireOrgIdentity,
-  requirePermission,
-  requireSyncedUser,
-  hasFeature,
   assertSameOrg,
+  hasFeature,
+  requireCaller,
+  requirePermission,
+  requireOrgWith,
 } from "./lib/auth";
 import {
-  DM_FEATURE,
+  addChannelMember,
+  assertNotDm,
+  findChannelInOrg,
   getMembership,
   isDm,
+  requireChannelInOrg,
   viewChannelOrNull,
 } from "./lib/channelAccess";
+import {
+  FEATURES,
+  FREE_CHANNEL_LIMIT,
+  MAX_ROWS_LISTED,
+  PERMISSIONS,
+} from "./lib/constants";
+import { duplicateName, forbidden, invalidArgument, notFound, planLimit } from "./lib/errors";
+import { getOrgMembership, regularChannels } from "./lib/lookups";
+import { listSidebarChannels } from "./lib/sidebar";
 
-const FREE_CHANNEL_LIMIT = 5;
-const UNREAD_CAP = 99;
-const MAX_CHANNELS_SCANNED = 500;
-const MAX_DM_MEMBERS_SHOWN = 8;
-
-function rejectDm(channel: { dmKey?: string }, message: string): void {
-  if (channel.dmKey !== undefined) {
-    throw new ConvexError({ code: "INVALID_ARGUMENT", message });
-  }
-}
-
-/**
- * The caller's sidebar: public channels, private channels they belong to and,
- * on plans with direct messages, their DMs. Each carries the caller's
- * membership state, an unread count (capped at UNREAD_CAP+1 reads, shown by
- * the client as "99+"), and how many of those unread messages @mention them.
- * Thread replies never count toward unread.
- */
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const org = await requireOrgIdentity(ctx);
-    requirePermission(org, "org:channels:read");
-    const user = await requireSyncedUser(ctx, org);
-
-    // dmKey === undefined selects regular channels only, so a busy org's
-    // DMs never crowd this scan or get read by people outside them.
-    const channels = await ctx.db
-      .query("channels")
-      .withIndex("by_org_dm_key", (q) =>
-        q.eq("orgId", org.orgId).eq("dmKey", undefined),
-      )
-      .take(MAX_CHANNELS_SCANNED);
-
-    const memberships = await ctx.db
-      .query("channelMembers")
-      .withIndex("by_org_user", (q) =>
-        q.eq("orgId", org.orgId).eq("userId", user._id),
-      )
-      .take(MAX_CHANNELS_SCANNED);
-    const membershipByChannel = new Map(
-      memberships.map((m) => [m.channelId, m]),
-    );
-
-    const visible = channels.filter(
-      (c) => !c.isPrivate || membershipByChannel.has(c._id),
-    );
-
-    // Memberships that aren't a regular channel are DMs (or dangling rows).
-    let dms: Doc<"channels">[] = [];
-    if (hasFeature(org, DM_FEATURE)) {
-      const regularIds = new Set(channels.map((c) => c._id));
-      const candidates = await Promise.all(
-        memberships
-          .filter((m) => !regularIds.has(m.channelId))
-          .map((m) => ctx.db.get(m.channelId)),
-      );
-      dms = candidates
-        .filter((c): c is Doc<"channels"> => !!c && isDm(c))
-        .sort(
-          (a, b) =>
-            (b.lastMessageAt ?? b._creationTime) -
-            (a.lastMessageAt ?? a._creationTime),
-        );
-    }
-
-    return await Promise.all(
-      [...visible, ...dms].map(async (channel) => {
-        const membership = membershipByChannel.get(channel._id);
-        let unreadCount = 0;
-        let unreadCapped = false;
-        let mentionCount = 0;
-        if (membership) {
-          const unread = await ctx.db
-            .query("messages")
-            .withIndex("by_channel_thread", (q) =>
-              q
-                .eq("channelId", channel._id)
-                .eq("threadRootId", undefined)
-                .gt("_creationTime", membership.lastReadAt),
-            )
-            .take(UNREAD_CAP + 1);
-          unreadCount = Math.min(unread.length, UNREAD_CAP);
-          unreadCapped = unread.length > UNREAD_CAP;
-          mentionCount = unread.filter((m) =>
-            m.mentions?.includes(user._id),
-          ).length;
-        }
-
-        let dmMembers: {
-          userId: Id<"users">;
-          name: string;
-          imageUrl: string | undefined;
-        }[] = [];
-        if (isDm(channel)) {
-          const rows = await ctx.db
-            .query("channelMembers")
-            .withIndex("by_channel_user", (q) => q.eq("channelId", channel._id))
-            .take(MAX_DM_MEMBERS_SHOWN);
-          dmMembers = await Promise.all(
-            rows.map(async (row) => {
-              const u = await ctx.db.get(row.userId);
-              return {
-                userId: row.userId,
-                name: u?.deletedAt ? "Deleted user" : (u?.name ?? "Unknown"),
-                imageUrl: u?.deletedAt ? undefined : u?.imageUrl,
-              };
-            }),
-          );
-        }
-
-        return {
-          ...channel,
-          isDm: isDm(channel),
-          isMember: !!membership,
-          starred: membership?.starred ?? false,
-          unreadCount,
-          unreadCapped,
-          mentionCount,
-          dmMembers,
-        };
-      }),
-    );
+    const { org, user } = await requireCaller(ctx, PERMISSIONS.CHANNELS_READ);
+    return await listSidebarChannels(ctx, org, user);
   },
 });
 
 export const get = query({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
-    const org = await requireOrgIdentity(ctx);
-    requirePermission(org, "org:channels:read");
+    const org = await requireOrgWith(ctx, PERMISSIONS.CHANNELS_READ);
     // Null hides private channels and DMs from people who aren't in them.
     return await viewChannelOrNull(ctx, org, args.channelId);
   },
@@ -159,33 +51,19 @@ export const create = mutation({
     isPrivate: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const org = await requireOrgIdentity(ctx);
-    requirePermission(org, "org:channels:manage");
-    const user = await requireSyncedUser(ctx, org);
+    const { org, user } = await requireCaller(ctx, PERMISSIONS.CHANNELS_MANAGE);
 
     const name = args.name.trim();
     if (!name) {
-      throw new ConvexError({
-        code: "INVALID_ARGUMENT",
-        message: "Channel name is required.",
-      });
+      throw invalidArgument("Channel name is required.");
     }
     if (args.isPrivate) {
-      requirePermission(org, "org:private_channels:manage");
+      requirePermission(org, PERMISSIONS.PRIVATE_CHANNELS_MANAGE);
     }
-    if (!hasFeature(org, "unlimited_channels")) {
-      const existing = await ctx.db
-        .query("channels")
-        .withIndex("by_org_dm_key", (q) =>
-          q.eq("orgId", org.orgId).eq("dmKey", undefined),
-        )
-        .take(FREE_CHANNEL_LIMIT + 1);
+    if (!hasFeature(org, FEATURES.UNLIMITED_CHANNELS)) {
+      const existing = await regularChannels(ctx, org.orgId).take(FREE_CHANNEL_LIMIT + 1);
       if (existing.length >= FREE_CHANNEL_LIMIT) {
-        throw new ConvexError({
-          code: "PLAN_LIMIT",
-          limit: "channels",
-          max: FREE_CHANNEL_LIMIT,
-        });
+        throw planLimit("channels", FREE_CHANNEL_LIMIT);
       }
     }
     const duplicate = await ctx.db
@@ -193,10 +71,7 @@ export const create = mutation({
       .withIndex("by_org_name", (q) => q.eq("orgId", org.orgId).eq("name", name))
       .unique();
     if (duplicate) {
-      throw new ConvexError({
-        code: "DUPLICATE_NAME",
-        message: `A channel named "${name}" already exists.`,
-      });
+      throw duplicateName(`A channel named "${name}" already exists.`);
     }
 
     const channelId = await ctx.db.insert("channels", {
@@ -206,12 +81,7 @@ export const create = mutation({
       isPrivate: args.isPrivate,
       createdBy: user._id,
     });
-    await ctx.db.insert("channelMembers", {
-      channelId,
-      orgId: org.orgId,
-      userId: user._id,
-      lastReadAt: Date.now(),
-    });
+    await addChannelMember(ctx, { channelId, orgId: org.orgId, userId: user._id });
     return channelId;
   },
 });
@@ -221,12 +91,9 @@ export const remove = mutation({
   args: { channelId: v.id("channels") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const org = await requireOrgIdentity(ctx);
-    requirePermission(org, "org:channels:manage");
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel) throw new ConvexError({ code: "NOT_FOUND" });
-    assertSameOrg(org, channel.orgId);
-    rejectDm(channel, "Direct messages can't be deleted.");
+    const org = await requireOrgWith(ctx, PERMISSIONS.CHANNELS_MANAGE);
+    const channel = await requireChannelInOrg(ctx, org, args.channelId);
+    assertNotDm(channel, "Direct messages can't be deleted.");
     await ctx.scheduler.runAfter(0, internal.clerkSync.cascadeDeleteChannel, {
       channelId: args.channelId,
     });
@@ -238,31 +105,17 @@ export const join = mutation({
   args: { channelId: v.id("channels") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const org = await requireOrgIdentity(ctx);
-    requirePermission(org, "org:channels:read");
-    const user = await requireSyncedUser(ctx, org);
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel) throw new ConvexError({ code: "NOT_FOUND" });
-    assertSameOrg(org, channel.orgId);
-    rejectDm(channel, "Direct messages can't be joined.");
+    const { org, user } = await requireCaller(ctx, PERMISSIONS.CHANNELS_READ);
+    const channel = await requireChannelInOrg(ctx, org, args.channelId);
+    assertNotDm(channel, "Direct messages can't be joined.");
     if (channel.isPrivate) {
-      throw new ConvexError({
-        code: "FORBIDDEN",
-        message: "Private channels require an invite from an admin.",
-      });
+      throw forbidden("Private channels require an invite from an admin.");
     }
-    const existing = await ctx.db
-      .query("channelMembers")
-      .withIndex("by_channel_user", (q) =>
-        q.eq("channelId", args.channelId).eq("userId", user._id),
-      )
-      .unique();
-    if (existing) return null;
-    await ctx.db.insert("channelMembers", {
+    if (await getMembership(ctx, args.channelId, user._id)) return null;
+    await addChannelMember(ctx, {
       channelId: args.channelId,
       orgId: org.orgId,
       userId: user._id,
-      lastReadAt: Date.now(),
     });
     return null;
   },
@@ -272,18 +125,11 @@ export const leave = mutation({
   args: { channelId: v.id("channels") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const org = await requireOrgIdentity(ctx);
-    const user = await requireSyncedUser(ctx, org);
-    const channel = await ctx.db.get(args.channelId);
+    const { org, user } = await requireCaller(ctx);
+    const channel = await findChannelInOrg(ctx, org, args.channelId);
     if (!channel) return null;
-    assertSameOrg(org, channel.orgId);
-    rejectDm(channel, "You can't leave a direct message.");
-    const existing = await ctx.db
-      .query("channelMembers")
-      .withIndex("by_channel_user", (q) =>
-        q.eq("channelId", args.channelId).eq("userId", user._id),
-      )
-      .unique();
+    assertNotDm(channel, "You can't leave a direct message.");
+    const existing = await getMembership(ctx, args.channelId, user._id);
     if (existing) await ctx.db.delete(existing._id);
     return null;
   },
@@ -294,42 +140,20 @@ export const addMember = mutation({
   args: { channelId: v.id("channels"), userId: v.id("users") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const org = await requireOrgIdentity(ctx);
-    requirePermission(org, "org:private_channels:manage");
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel) throw new ConvexError({ code: "NOT_FOUND" });
-    assertSameOrg(org, channel.orgId);
-    rejectDm(channel, "People can't be added to a direct message.");
+    const org = await requireOrgWith(ctx, PERMISSIONS.PRIVATE_CHANNELS_MANAGE);
+    const channel = await requireChannelInOrg(ctx, org, args.channelId);
+    assertNotDm(channel, "People can't be added to a direct message.");
     if (!channel.isPrivate) {
-      throw new ConvexError({
-        code: "INVALID_ARGUMENT",
-        message: "addMember is for private channels only; public channels use join.",
-      });
+      throw invalidArgument("addMember is for private channels only; public channels use join.");
     }
-    const targetMembership = await ctx.db
-      .query("orgMemberships")
-      .withIndex("by_org_user", (q) =>
-        q.eq("orgId", org.orgId).eq("userId", args.userId),
-      )
-      .unique();
-    if (!targetMembership) {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "That user is not a member of this organization.",
-      });
+    if (!(await getOrgMembership(ctx, org.orgId, args.userId))) {
+      throw notFound("That user is not a member of this organization.");
     }
-    const existing = await ctx.db
-      .query("channelMembers")
-      .withIndex("by_channel_user", (q) =>
-        q.eq("channelId", args.channelId).eq("userId", args.userId),
-      )
-      .unique();
-    if (existing) return null;
-    await ctx.db.insert("channelMembers", {
+    if (await getMembership(ctx, args.channelId, args.userId)) return null;
+    await addChannelMember(ctx, {
       channelId: args.channelId,
       orgId: org.orgId,
       userId: args.userId,
-      lastReadAt: Date.now(),
     });
     return null;
   },
@@ -339,17 +163,18 @@ export const addMember = mutation({
 export const listMembers = query({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
-    const org = await requireOrgIdentity(ctx);
-    requirePermission(org, "org:channels:read");
+    const org = await requireOrgWith(ctx, PERMISSIONS.CHANNELS_READ);
     const channel = await viewChannelOrNull(ctx, org, args.channelId);
     if (!channel) return [];
     const memberships = await ctx.db
       .query("channelMembers")
       .withIndex("by_channel_user", (q) => q.eq("channelId", args.channelId))
-      .take(500);
+      .take(MAX_ROWS_LISTED);
     return await Promise.all(
       memberships.map(async (m) => {
         const user = await ctx.db.get(m.userId);
+        // The stored name is returned as-is; the client masks deleted users
+        // from the `deleted` flag.
         return {
           userId: m.userId,
           name: user?.name ?? "Unknown",
@@ -365,8 +190,9 @@ export const listMembers = query({
 export const listAddable = query({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
-    const org = await requireOrgIdentity(ctx);
-    requirePermission(org, "org:private_channels:manage");
+    const org = await requireOrgWith(ctx, PERMISSIONS.PRIVATE_CHANNELS_MANAGE);
+    // A missing channel or a DM yields an empty picker even across orgs, so
+    // this checks the org only after those two.
     const channel = await ctx.db.get(args.channelId);
     if (!channel || isDm(channel)) return [];
     assertSameOrg(org, channel.orgId);
@@ -375,11 +201,11 @@ export const listAddable = query({
       ctx.db
         .query("orgMemberships")
         .withIndex("by_org", (q) => q.eq("orgId", org.orgId))
-        .take(500),
+        .take(MAX_ROWS_LISTED),
       ctx.db
         .query("channelMembers")
         .withIndex("by_channel_user", (q) => q.eq("channelId", args.channelId))
-        .take(500),
+        .take(MAX_ROWS_LISTED),
     ]);
     const memberUserIds = new Set(channelMembers.map((m) => m.userId));
     const addable = orgMembers.filter((m) => !memberUserIds.has(m.userId));
@@ -398,14 +224,10 @@ export const setStarred = mutation({
   args: { channelId: v.id("channels"), starred: v.boolean() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const org = await requireOrgIdentity(ctx);
-    const user = await requireSyncedUser(ctx, org);
+    const { user } = await requireCaller(ctx);
     const membership = await getMembership(ctx, args.channelId, user._id);
     if (!membership) {
-      throw new ConvexError({
-        code: "FORBIDDEN",
-        message: "Join the channel to star it.",
-      });
+      throw forbidden("Join the channel to star it.");
     }
     await ctx.db.patch(membership._id, {
       starred: args.starred ? true : undefined,
