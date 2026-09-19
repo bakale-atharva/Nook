@@ -1,70 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePaginatedQuery, useMutation, useQuery } from "convex/react";
-import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { convexErrorMessage } from "@/lib/convex-errors";
-import { Pencil, Trash2, X, Check, Sparkles } from "lucide-react";
+import { MessageItem } from "@/components/message-item";
+import { formatDayLabel, sameDay } from "@/lib/time";
+import { Sparkles } from "lucide-react";
 
 // Consecutive messages from the same author land in one visual group —
 // avatar and name shown once — when they're this close together.
 const GROUP_WINDOW_MS = 60_000;
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .map((p) => p[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
-function formatTime(ms: number) {
-  return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
-
-function sameDay(a: number, b: number) {
-  const da = new Date(a);
-  const db = new Date(b);
-  return (
-    da.getFullYear() === db.getFullYear() &&
-    da.getMonth() === db.getMonth() &&
-    da.getDate() === db.getDate()
-  );
-}
-
-// "Today" is the only relative label. Every other day — including
-// yesterday — shows its absolute date, with the year added once it's not
-// the current year.
-function formatDayLabel(ms: number): string {
-  const now = Date.now();
-  if (sameDay(ms, now)) return "Today";
-  const sameYear = new Date(ms).getFullYear() === new Date(now).getFullYear();
-  return new Date(ms).toLocaleDateString([], {
-    month: "long",
-    day: "numeric",
-    year: sameYear ? undefined : "numeric",
-  });
-}
-
-type MessageItem = {
-  _id: Id<"messages">;
-  _creationTime: number;
-  authorId: Id<"users">;
-  authorName: string;
-  authorImageUrl?: string;
-  authorDeleted: boolean;
-  body: string;
-  editedAt?: number;
-};
 
 function DateDivider({ label }: { label: string }) {
   return (
@@ -78,134 +27,18 @@ function DateDivider({ label }: { label: string }) {
   );
 }
 
-function MessageRow({
-  message,
-  isOwn,
-  canModerate,
-  isGroupStart,
-}: {
-  message: MessageItem;
-  isOwn: boolean;
-  canModerate: boolean;
-  isGroupStart: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(message.body);
-  const edit = useMutation(api.messages.edit);
-  const remove = useMutation(api.messages.remove);
-
-  async function saveEdit() {
-    const body = draft.trim();
-    if (!body) return;
-    try {
-      await edit({ messageId: message._id, body });
-      setEditing(false);
-    } catch (err) {
-      toast.error(convexErrorMessage(err, "Couldn't save your edit."));
-    }
-  }
-
-  async function handleDelete() {
-    try {
-      await remove({ messageId: message._id });
-    } catch (err) {
-      toast.error(convexErrorMessage(err, "Couldn't delete that message."));
-    }
-  }
-
-  const editedTag = message.editedAt && (
-    <span className="font-mono text-[0.6875rem] tracking-[0.04em] text-muted-foreground uppercase">
-      edited
-    </span>
-  );
-
-  return (
-    <div
-      className={`group flex items-start gap-3 px-4 hover:bg-muted/50 ${
-        isGroupStart ? "pt-2 pb-0.5" : "py-0.5"
-      }`}
-    >
-      <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center">
-        {isGroupStart ? (
-          <Avatar className="size-8">
-            <AvatarImage src={message.authorImageUrl} alt={message.authorName} />
-            <AvatarFallback className="text-xs">{initials(message.authorName)}</AvatarFallback>
-          </Avatar>
-        ) : (
-          <span className="hidden font-tabular text-[0.6875rem] text-muted-foreground group-hover:inline">
-            {formatTime(message._creationTime)}
-          </span>
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        {isGroupStart && (
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-medium">{message.authorName}</span>
-            <span className="font-tabular text-xs text-muted-foreground">
-              {formatTime(message._creationTime)}
-            </span>
-            {editedTag}
-          </div>
-        )}
-        {editing ? (
-          <div className="mt-1 flex flex-col gap-2">
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="min-h-16"
-              autoFocus
-            />
-            <div className="flex gap-2">
-              <Button size="sm" onClick={saveEdit}>
-                <Check /> Save
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setDraft(message.body);
-                  setEditing(false);
-                }}
-              >
-                <X /> Cancel
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <p className="whitespace-pre-wrap break-words text-sm">
-            {message.body}
-            {!isGroupStart && message.editedAt && (
-              <span className="ml-1.5">{editedTag}</span>
-            )}
-          </p>
-        )}
-      </div>
-      {!editing && (isOwn || canModerate) && (
-        <div className="hidden shrink-0 items-center gap-1 group-hover:flex">
-          {isOwn && (
-            <Button variant="ghost" size="icon" className="size-7" onClick={() => setEditing(true)}>
-              <Pencil className="size-3.5" />
-            </Button>
-          )}
-          <Button variant="ghost" size="icon" className="size-7" onClick={handleDelete}>
-            <Trash2 className="size-3.5" />
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function MessageList({
   channelId,
   currentUserId,
   canModerate,
   orgSlug,
+  onOpenThread,
 }: {
   channelId: Id<"channels">;
   currentUserId: Id<"users"> | undefined;
   canModerate: boolean;
   orgSlug: string;
+  onOpenThread: (rootId: Id<"messages">) => void;
 }) {
   const { results, status, loadMore } = usePaginatedQuery(
     api.messages.list,
@@ -292,11 +125,12 @@ export function MessageList({
         return (
           <div key={message._id}>
             {dayLabel && <DateDivider label={dayLabel} />}
-            <MessageRow
+            <MessageItem
               message={message}
-              isOwn={message.authorId === currentUserId}
+              currentUserId={currentUserId}
               canModerate={canModerate}
               isGroupStart={isGroupStart}
+              onOpenThread={onOpenThread}
             />
           </div>
         );

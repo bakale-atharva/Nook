@@ -4,6 +4,7 @@ import {
   AvatarImage,
 } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { initials } from "@/lib/utils";
 
 type Member = {
   userId: string;
@@ -11,16 +12,6 @@ type Member = {
   imageUrl?: string;
   deleted: boolean;
 };
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .map((p) => p[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
 
 export function MemberSidebar({
   members,

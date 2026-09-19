@@ -13,9 +13,13 @@ export function convexErrorMessage(err: unknown, fallback = "Something went wron
   const data = err.data as ConvexErrorData;
   switch (data.code) {
     case "PLAN_LIMIT":
-      return data.limit === "channels"
-        ? `Free orgs are limited to ${data.max ?? 5} channels. Upgrade to Pro for unlimited channels.`
-        : "You've hit a plan limit. Upgrade to Pro to continue.";
+      if (data.limit === "channels") {
+        return `Free orgs are limited to ${data.max ?? 5} channels. Upgrade to Pro for unlimited channels.`;
+      }
+      if (data.limit === "direct_messages") {
+        return "Direct messages are a Pro feature. Upgrade to message teammates directly.";
+      }
+      return "You've hit a plan limit. Upgrade to Pro to continue.";
     case "DUPLICATE_NAME":
       return data.message ?? "That name is already taken.";
     case "FORBIDDEN":
