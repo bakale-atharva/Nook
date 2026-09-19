@@ -73,6 +73,7 @@ export function MessageComposer({
         type="submit"
         variant="cta"
         size="icon"
+        className="size-11"
         disabled={!body.trim() || sending}
       >
         <Send />

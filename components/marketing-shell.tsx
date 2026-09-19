@@ -8,10 +8,10 @@ export function MarketingShell({
   className?: string;
 }) {
   return (
-    <div className="hero-gradient scrollbar-hide flex h-dvh flex-col overflow-y-auto p-3 sm:p-6">
+    <div className="blueprint-grid scrollbar-hide flex h-dvh flex-col items-center justify-center overflow-y-auto bg-hero p-4 sm:p-8">
       <div
         className={cn(
-          "relative mx-auto flex w-full max-w-6xl flex-1 flex-col rounded-[2rem] border bg-card shadow-xl",
+          "relative flex w-full max-w-lg flex-col rounded-[calc(var(--radius-lg)+6px)] bg-card p-8 shadow-sheet-lg sm:p-10",
           className
         )}
       >

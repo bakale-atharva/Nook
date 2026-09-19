@@ -60,17 +60,19 @@ export default function WorkspaceLayout({
       <PlanSync />
       <Sidebar>
         <SidebarHeader className="gap-2 p-2">
-          <OrganizationSwitcher
-            afterSelectOrganizationUrl="/org/:slug"
-            afterCreateOrganizationUrl="/org/:slug"
-            hidePersonal
-          />
+          <div className="clerk-on-sidebar">
+            <OrganizationSwitcher
+              afterSelectOrganizationUrl="/org/:slug"
+              afterCreateOrganizationUrl="/org/:slug"
+              hidePersonal
+            />
+          </div>
           <div className="flex items-center justify-between px-1">
             <Badge variant={isPro ? "default" : "secondary"}>
               {isPro ? "Pro" : "Free"}
             </Badge>
             {organization && (
-              <span className="text-xs text-muted-foreground">
+              <span className="font-tabular text-xs text-sidebar-foreground/70">
                 {organization.membersCount}/{organization.maxAllowedMemberships} members
               </span>
             )}
@@ -127,7 +129,7 @@ export default function WorkspaceLayout({
                           <span className="truncate">{channel.name}</span>
                         </SidebarMenuButton>
                         {channel.unreadCount > 0 && (
-                          <SidebarMenuBadge>
+                          <SidebarMenuBadge className="font-tabular text-live">
                             {channel.unreadCapped ? "99+" : channel.unreadCount}
                           </SidebarMenuBadge>
                         )}
@@ -155,7 +157,7 @@ export default function WorkspaceLayout({
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
-          <div className="flex items-center gap-2 px-2 py-1">
+          <div className="clerk-on-sidebar flex items-center gap-2 px-2 py-1">
             <UserButton />
           </div>
         </SidebarFooter>

@@ -27,5 +27,10 @@ export function TypingIndicator({ channelId }: { channelId: Id<"channels"> }) {
         ? `${names[0]} and ${names[1]} are typing…`
         : `${names.length} people are typing…`;
 
-  return <div className="h-5 px-4 text-xs text-muted-foreground">{text}</div>;
+  return (
+    <div className="flex h-5 items-center gap-1.5 px-4 font-mono text-[0.6875rem] tracking-[0.04em] text-muted-foreground uppercase">
+      <span className="size-1.5 animate-pulse rounded-full bg-live" />
+      {text}
+    </div>
+  );
 }
