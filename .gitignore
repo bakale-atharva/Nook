@@ -44,3 +44,6 @@ next-env.d.ts
 .agents/*
 AGENTS.md
 !.env.example
+
+# impeccable
+.impeccable/
