@@ -1,11 +1,14 @@
-import { v, ConvexError } from "convex/values";
+import { v } from "convex/values";
 import { mutation } from "./_generated/server";
-import { requireOrgIdentity, requirePermission, assertSameOrg } from "./lib/auth";
-import { assertChannelMember } from "./lib/channelAccess";
-
-const MAX_EMOJI_LENGTH = 16;
-const MAX_DISTINCT_EMOJI = 20;
-const MAX_REACTIONS_READ = 200;
+import { requireOrgWith } from "./lib/auth";
+import { assertChannelMember, requireMessageInOrg } from "./lib/channelAccess";
+import {
+  MAX_DISTINCT_EMOJI,
+  MAX_EMOJI_LENGTH,
+  MAX_REACTIONS_READ,
+  PERMISSIONS,
+} from "./lib/constants";
+import { invalidArgument } from "./lib/errors";
 
 // A reaction must actually be an emoji, so this can't be used to stash
 // arbitrary text on a message.
@@ -19,20 +22,14 @@ export const toggle = mutation({
   args: { messageId: v.id("messages"), emoji: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const org = await requireOrgIdentity(ctx);
-    requirePermission(org, "org:messages:send");
+    const org = await requireOrgWith(ctx, PERMISSIONS.MESSAGES_SEND);
 
     const emoji = args.emoji.trim();
     if (!emoji || emoji.length > MAX_EMOJI_LENGTH || !EMOJI.test(emoji)) {
-      throw new ConvexError({
-        code: "INVALID_ARGUMENT",
-        message: "That isn't an emoji.",
-      });
+      throw invalidArgument("That isn't an emoji.");
     }
 
-    const message = await ctx.db.get(args.messageId);
-    if (!message) throw new ConvexError({ code: "NOT_FOUND" });
-    assertSameOrg(org, message.orgId);
+    const message = await requireMessageInOrg(ctx, org, args.messageId);
     const { user } = await assertChannelMember(ctx, org, message.channelId);
 
     const existing = await ctx.db
@@ -55,10 +52,7 @@ export const toggle = mutation({
       .take(MAX_REACTIONS_READ);
     const distinct = new Set(current.map((r) => r.emoji));
     if (!distinct.has(emoji) && distinct.size >= MAX_DISTINCT_EMOJI) {
-      throw new ConvexError({
-        code: "INVALID_ARGUMENT",
-        message: "This message has too many different reactions.",
-      });
+      throw invalidArgument("This message has too many different reactions.");
     }
 
     await ctx.db.insert("reactions", {

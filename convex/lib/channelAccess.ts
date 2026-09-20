@@ -1,4 +1,3 @@
-import { ConvexError } from "convex/values";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
@@ -7,13 +6,23 @@ import {
   requireSyncedUser,
   type OrgIdentity,
 } from "./auth";
-
-/** Clerk plan feature that unlocks direct messages (Pro). */
-export const DM_FEATURE = "direct_messages";
+import { FEATURES, PERMISSIONS } from "./constants";
+import {
+  errorCodeOf,
+  forbidden,
+  invalidArgument,
+  notFound,
+  planLimit,
+} from "./errors";
 
 /** A DM is a private channel that carries a `dmKey`. */
-export function isDm(channel: Doc<"channels">): boolean {
+export function isDm(channel: { dmKey?: string }): boolean {
   return channel.dmKey !== undefined;
+}
+
+/** Throws INVALID_ARGUMENT if `channel` is a DM (they can't be joined, left, ...). */
+export function assertNotDm(channel: { dmKey?: string }, message: string): void {
+  if (isDm(channel)) throw invalidArgument(message);
 }
 
 export async function getMembership(
@@ -27,6 +36,70 @@ export async function getMembership(
       q.eq("channelId", channelId).eq("userId", userId),
     )
     .unique();
+}
+
+/** Adds `userId` to a channel, reading up to now by default. */
+export async function addChannelMember(
+  ctx: MutationCtx,
+  member: {
+    channelId: Id<"channels">;
+    orgId: string;
+    userId: Id<"users">;
+    lastReadAt?: number;
+  },
+): Promise<void> {
+  await ctx.db.insert("channelMembers", {
+    channelId: member.channelId,
+    orgId: member.orgId,
+    userId: member.userId,
+    lastReadAt: member.lastReadAt ?? Date.now(),
+  });
+}
+
+/** Passes `doc` through, but throws NOT_FOUND if it belongs to another org. */
+function inCallerOrg<D extends { orgId: string }>(org: OrgIdentity, doc: D | null): D | null {
+  if (doc) assertSameOrg(org, doc.orgId);
+  return doc;
+}
+
+/** The channel, or null if it doesn't exist. NOT_FOUND if it's another org's. */
+export async function findChannelInOrg(
+  ctx: QueryCtx | MutationCtx,
+  org: OrgIdentity,
+  channelId: Id<"channels">,
+): Promise<Doc<"channels"> | null> {
+  return inCallerOrg(org, await ctx.db.get(channelId));
+}
+
+/** Like findChannelInOrg, but a missing channel is NOT_FOUND too. */
+export async function requireChannelInOrg(
+  ctx: QueryCtx | MutationCtx,
+  org: OrgIdentity,
+  channelId: Id<"channels">,
+): Promise<Doc<"channels">> {
+  const channel = await findChannelInOrg(ctx, org, channelId);
+  if (!channel) throw notFound();
+  return channel;
+}
+
+/** The message, or null if it doesn't exist. NOT_FOUND if it's another org's. */
+export async function findMessageInOrg(
+  ctx: QueryCtx | MutationCtx,
+  org: OrgIdentity,
+  messageId: Id<"messages">,
+): Promise<Doc<"messages"> | null> {
+  return inCallerOrg(org, await ctx.db.get(messageId));
+}
+
+/** Like findMessageInOrg, but a missing message is NOT_FOUND too. */
+export async function requireMessageInOrg(
+  ctx: QueryCtx | MutationCtx,
+  org: OrgIdentity,
+  messageId: Id<"messages">,
+): Promise<Doc<"messages">> {
+  const message = await findMessageInOrg(ctx, org, messageId);
+  if (!message) throw notFound();
+  return message;
 }
 
 /**
@@ -43,25 +116,23 @@ export async function assertCanViewChannel(
   org: OrgIdentity,
   channelId: Id<"channels">,
 ): Promise<Doc<"channels">> {
-  const channel = await ctx.db.get(channelId);
-  if (!channel) throw new ConvexError({ code: "NOT_FOUND" });
-  assertSameOrg(org, channel.orgId);
+  const channel = await requireChannelInOrg(ctx, org, channelId);
 
   if (isDm(channel)) {
-    if (!hasFeature(org, DM_FEATURE)) {
-      throw new ConvexError({ code: "PLAN_LIMIT", limit: "direct_messages" });
+    if (!hasFeature(org, FEATURES.DIRECT_MESSAGES)) {
+      throw planLimit("direct_messages");
     }
     const user = await requireSyncedUser(ctx, org);
     const membership = await getMembership(ctx, channel._id, user._id);
-    if (!membership) throw new ConvexError({ code: "NOT_FOUND" });
+    if (!membership) throw notFound();
     return channel;
   }
 
   if (channel.isPrivate) {
     const user = await requireSyncedUser(ctx, org);
     const membership = await getMembership(ctx, channel._id, user._id);
-    if (!membership && !org.permissions.has("org:private_channels:manage")) {
-      throw new ConvexError({ code: "NOT_FOUND" });
+    if (!membership && !org.permissions.has(PERMISSIONS.PRIVATE_CHANNELS_MANAGE)) {
+      throw notFound();
     }
   }
   return channel;
@@ -81,10 +152,8 @@ export async function viewChannelOrNull(
   try {
     return await assertCanViewChannel(ctx, org, channelId);
   } catch (err) {
-    if (err instanceof ConvexError) {
-      const code = (err.data as { code?: string } | undefined)?.code;
-      if (code === "NOT_FOUND" || code === "PLAN_LIMIT") return null;
-    }
+    const code = errorCodeOf(err);
+    if (code === "NOT_FOUND" || code === "PLAN_LIMIT") return null;
     throw err;
   }
 }
@@ -99,10 +168,22 @@ export async function assertChannelMember(
   const user = await requireSyncedUser(ctx, org);
   const membership = await getMembership(ctx, channel._id, user._id);
   if (!membership) {
-    throw new ConvexError({
-      code: "FORBIDDEN",
-      message: "Join the channel first.",
-    });
+    throw forbidden("Join the channel first.");
   }
   return { channel, user, membership };
+}
+
+/**
+ * The message plus the confirmation that the caller may see its channel, or
+ * null if the message is gone. NOT_FOUND if it's another org's or its
+ * channel is hidden from the caller.
+ */
+export async function findViewableMessage(
+  ctx: QueryCtx | MutationCtx,
+  org: OrgIdentity,
+  messageId: Id<"messages">,
+): Promise<Doc<"messages"> | null> {
+  const message = await findMessageInOrg(ctx, org, messageId);
+  if (message) await assertCanViewChannel(ctx, org, message.channelId);
+  return message;
 }

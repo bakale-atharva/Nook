@@ -1,9 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireOrgIdentity, requireSyncedUser } from "./lib/auth";
+import { requireCaller } from "./lib/auth";
 import { assertCanViewChannel } from "./lib/channelAccess";
-
-const TYPING_TTL_MS = 6000;
+import { MAX_TYPING_LISTED, TYPING_SWEEP_BATCH, TYPING_TTL_MS } from "./lib/constants";
 
 /**
  * Upserts the caller's "typing" row for a channel, expiring TYPING_TTL_MS
@@ -15,8 +14,7 @@ export const heartbeat = mutation({
   args: { channelId: v.id("channels") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const org = await requireOrgIdentity(ctx);
-    const user = await requireSyncedUser(ctx, org);
+    const { org, user } = await requireCaller(ctx);
     await assertCanViewChannel(ctx, org, args.channelId);
 
     const existing = await ctx.db
@@ -38,7 +36,7 @@ export const heartbeat = mutation({
       .query("typing")
       .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
       .filter((q) => q.lt(q.field("expiresAt"), Date.now()))
-      .take(5);
+      .take(TYPING_SWEEP_BATCH);
     for (const row of stale) {
       await ctx.db.delete(row._id);
     }
@@ -51,8 +49,7 @@ export const clear = mutation({
   args: { channelId: v.id("channels") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const org = await requireOrgIdentity(ctx);
-    const user = await requireSyncedUser(ctx, org);
+    const { user } = await requireCaller(ctx);
     const existing = await ctx.db
       .query("typing")
       .withIndex("by_channel_user", (q) =>
@@ -74,14 +71,13 @@ export const list = query({
   args: { channelId: v.id("channels"), now: v.number() },
   returns: v.array(v.object({ userId: v.id("users"), name: v.string() })),
   handler: async (ctx, args) => {
-    const org = await requireOrgIdentity(ctx);
-    const user = await requireSyncedUser(ctx, org);
+    const { org, user } = await requireCaller(ctx);
     await assertCanViewChannel(ctx, org, args.channelId);
     const rows = await ctx.db
       .query("typing")
       .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
       .filter((q) => q.gt(q.field("expiresAt"), args.now))
-      .take(20);
+      .take(MAX_TYPING_LISTED);
     const others = rows.filter((r) => r.userId !== user._id);
     return await Promise.all(
       others.map(async (r) => {

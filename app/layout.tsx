@@ -1,8 +1,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import { shadcn } from "@clerk/ui/themes";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Archivo, Martian_Mono } from "next/font/google";
-import { ConvexClientProvider } from "@/components/providers";
 import "./globals.css";
 
 const archivo = Archivo({
@@ -16,9 +15,16 @@ const martianMono = Martian_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Nook",
+  title: { default: "Nook", template: "%s · Nook" },
   description:
     "Nook is a calmer, more intentional real-time chat workspace for teams.",
+};
+
+// The app is light-only (see the tokens in globals.css); this tints the
+// mobile browser chrome to match the page background.
+export const viewport: Viewport = {
+  themeColor: "#f8f7f2",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -26,12 +32,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${archivo.variable} ${martianMono.variable} h-full antialiased`}
-      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        <ClerkProvider appearance={{ theme: shadcn }}>
-          <ConvexClientProvider>{children}</ConvexClientProvider>
-        </ClerkProvider>
+      <body className="min-h-full flex flex-col">
+        {/* The Convex client is mounted by the /org layout, which is the only
+            part of the app that talks to it. */}
+        <ClerkProvider appearance={{ theme: shadcn }}>{children}</ClerkProvider>
       </body>
     </html>
   );

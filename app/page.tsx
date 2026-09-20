@@ -1,17 +1,8 @@
-"use client";
-
-import Link from "next/link";
-import {
-  Show,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-  PricingTable,
-  useOrganization,
-} from "@clerk/nextjs";
-import { Button } from "@/components/ui/button";
 import { ChatPreviewMockup } from "@/components/chat-preview-mockup";
-import { cn } from "@/lib/utils";
+import { HeroActions } from "@/components/landing/hero-actions";
+import { LandingHeader } from "@/components/landing/landing-header";
+import { PricingPlans } from "@/components/landing/pricing-plans";
+import { TAGLINE } from "@/lib/marketing-copy";
 
 const SPEC_ROWS = [
   {
@@ -40,52 +31,6 @@ const SPEC_ROWS = [
   },
 ];
 
-function LandingHeader() {
-  const { organization } = useOrganization();
-
-  return (
-    <header className="flex items-center justify-between px-6 py-5 sm:px-10">
-      <div className="flex items-center gap-2.5">
-        <span className="flex size-7 items-center justify-center rounded-[5px] bg-hero-live font-mono text-xs font-bold text-hero-live-foreground">
-          N
-        </span>
-        <span className="font-heading text-lg font-semibold text-hero-foreground">
-          Nook
-        </span>
-      </div>
-      <div className="flex items-center gap-3">
-        <Show when="signed-out">
-          <SignInButton>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-hero-foreground hover:bg-white/10 hover:text-hero-foreground"
-            >
-              Sign in
-            </Button>
-          </SignInButton>
-          <SignUpButton>
-            <Button variant="cta" size="sm">
-              Get started
-            </Button>
-          </SignUpButton>
-        </Show>
-        <Show when="signed-in">
-          <Button
-            size="sm"
-            variant="cta"
-            nativeButton={false}
-            render={<Link href={organization ? `/org/${organization.slug}` : "/onboarding"} />}
-          >
-            Go to workspace
-          </Button>
-          <UserButton />
-        </Show>
-      </div>
-    </header>
-  );
-}
-
 export default function LandingPage() {
   return (
     <div className="scrollbar-hide h-dvh overflow-y-auto bg-background">
@@ -95,31 +40,14 @@ export default function LandingPage() {
         <section className="relative mx-auto grid w-full max-w-6xl gap-16 px-6 pt-8 pb-32 sm:grid-cols-2 sm:items-center sm:px-10 sm:pt-12 sm:pb-40">
           <div className="flex flex-col gap-7">
             <h1 className="max-w-lg text-4xl font-semibold tracking-[-0.02em] text-hero-foreground sm:text-5xl">
-              Team chat, drafted calmer.
+              {TAGLINE}
             </h1>
             <p className="max-w-md text-lg text-hero-muted">
               Nook lays your organization out as a set of sheets, not a feed
               to keep up with. Real-time messaging, scoped per team, without
               Discord&apos;s noise or Slack&apos;s sprawl.
             </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <Show when="signed-out">
-                <SignUpButton>
-                  <Button variant="cta" size="lg">
-                    Start free
-                  </Button>
-                </SignUpButton>
-                <SignInButton>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-hero-border bg-transparent text-hero-foreground hover:bg-white/10 hover:text-hero-foreground"
-                  >
-                    Sign in
-                  </Button>
-                </SignInButton>
-              </Show>
-            </div>
+            <HeroActions />
           </div>
 
           <ChatPreviewMockup className="mx-auto h-64 w-full max-w-sm sm:h-72" />
@@ -132,27 +60,20 @@ export default function LandingPage() {
             <h2 className="mb-10 text-2xl font-semibold">
               What&apos;s on the sheet
             </h2>
-            <div className="rounded-[calc(var(--radius-lg)+4px)] border">
-              {SPEC_ROWS.map((row, i) => (
-                <div
+            <ul className="divide-y rounded-[calc(var(--radius-lg)+4px)] border">
+              {SPEC_ROWS.map((row) => (
+                <li
                   key={row.tag}
-                  className={cn(
-                    "grid gap-2 px-6 py-6 sm:grid-cols-[9rem_1fr] sm:gap-8 sm:px-8",
-                    i !== 0 && "border-t"
-                  )}
+                  className="grid gap-2 px-6 py-6 sm:grid-cols-[9rem_1fr] sm:gap-8 sm:px-8"
                 >
-                  <span className="font-mono text-sm text-primary">
-                    {row.tag}
-                  </span>
+                  <span className="font-mono text-sm text-primary">{row.tag}</span>
                   <div>
                     <h3 className="font-medium">{row.title}</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {row.description}
-                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">{row.description}</p>
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         </section>
 
@@ -167,15 +88,7 @@ export default function LandingPage() {
                 when you outgrow it.
               </p>
             </div>
-            <Show when="signed-in">
-              <PricingTable for="organization" />
-            </Show>
-            <Show when="signed-out">
-              <div className="rounded-[calc(var(--radius-lg)+4px)] border border-dashed p-6 text-center text-sm text-muted-foreground">
-                Sign up and create an organization to see live pricing and
-                upgrade options.
-              </div>
-            </Show>
+            <PricingPlans />
           </div>
         </section>
       </main>
